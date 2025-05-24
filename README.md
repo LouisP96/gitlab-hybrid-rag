@@ -1,6 +1,6 @@
 # GitLab RAG System
 
-A comprehensive Retrieval-Augmented Generation (RAG) system for GitLab codebases that enables intelligent querying of code, documentation, issues, merge requests, and project metadata using advanced hybrid search and AI-powered responses.
+A comprehensive Retrieval-Augmented Generation (RAG) system for GitLab codebases that enables intelligent querying of code, documentation, issues, merge requests, and project metadata using advanced hybrid search.
 
 ## Features & Technology
 
