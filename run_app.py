@@ -19,19 +19,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--retrieval-k",
         type=int,
-        default=50,
+        default=25,
         help="Number of results to retrieve from each system (default: 50)",
     )
     parser.add_argument(
         "--rerank-candidates",
         type=int,
-        default=30,
+        default=20,
         help="Number of candidates to rerank (default: 30)",
     )
     parser.add_argument(
         "--reranker-batch-size",
         type=int,
-        default=8,
+        default=32,
         help="Batch size for reranking (default: 8)",
     )
     parser.add_argument(
