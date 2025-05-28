@@ -4,13 +4,13 @@
     <title>GitLab Code Assistant</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
+            font-family: 'GitLab Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
         #chat-container {
-            height: 500px;
+            height: 900px;
             border: 1px solid #ccc;
             padding: 10px;
             overflow-y: auto;
@@ -94,7 +94,7 @@
             background: #f0f0f0;
             padding: 2px 4px;
             border-radius: 3px;
-            font-family: monospace;
+            font-family: 'GitLab Mono', 'Menlo', 'DejaVu Sans Mono', 'Liberation Mono', 'Consolas', 'Ubuntu Mono', 'Courier New', 'andale mono', 'lucida console', monospace;
         }
         pre {
             padding: 10px;
@@ -143,6 +143,58 @@
             padding: 1px 3px;
             border-radius: 2px;
             font-size: 10px;
+        }
+        
+        /* Enhanced markdown styles */
+        h1, h2, h3, h4, h5, h6 {
+            margin: 8px 0 2px 0;
+            font-weight: bold;
+        }
+        h1 { font-size: 1.5em; color: #333; }
+        h2 { font-size: 1.3em; color: #444; }
+        h3 { font-size: 1.2em; color: #555; }
+        h4 { font-size: 1.1em; color: #666; }
+        h5 { font-size: 1.05em; color: #777; }
+        h6 { font-size: 1em; color: #888; }
+        
+        strong { font-weight: bold; }
+        em { font-style: italic; }
+        
+        ul, ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        blockquote {
+            border-left: 3px solid #ddd;
+            margin: 8px 0;
+            padding-left: 12px;
+            color: #666;
+        }
+        
+        /* Loading animation */
+        .loading-dots::after {
+            content: "";
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% {
+                content: ".";
+            }
+            40% {
+                content: "..";
+            }
+            60%, 80% {
+                content: "...";
+            }
+            100% {
+                content: "";
+            }
         }
     </style>
 </head>
@@ -320,6 +372,78 @@
                 });
         }
 
+        // Enhanced markdown processing function
+        function processMarkdown(text) {
+            let processedText = text;
+            
+            // Convert code blocks with language first (to avoid conflicts)
+            processedText = processedText.replace(/```(\w+)([\s\S]*?)```/g, (match, lang, code) => {
+                return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
+            });
+            
+            // Convert code blocks without language
+            processedText = processedText.replace(/```([\s\S]*?)```/g, (match, code) => {
+                return `<pre><code>${code.trim()}</code></pre>`;
+            });
+            
+            // Convert inline code (but not if it's inside a code block)
+            processedText = processedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // Convert headings (# to ######)
+            processedText = processedText.replace(/^(#{1,6})\s+(.+)$/gm, (match, hashes, text) => {
+                const level = hashes.length;
+                return `<h${level}>${text.trim()}</h${level}>`;
+            });
+            
+            // Convert bold text (**text** only, not underscores)
+            processedText = processedText.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            
+            // Convert italic text (*text* only, not underscores)
+            processedText = processedText.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+            
+            // Convert blockquotes
+            processedText = processedText.replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
+            
+            // Convert unordered lists - better approach with unique markers
+            processedText = processedText.replace(/^[\s]*[-*+]\s+(.+)$/gm, '§§§LISTITEM§§§$1§§§ENDLISTITEM§§§');
+            processedText = processedText.replace(/(§§§LISTITEM§§§[^§]+§§§ENDLISTITEM§§§(\n|$))+/g, (match) => {
+                const items = match.split('§§§ENDLISTITEM§§§').filter(item => item.includes('§§§LISTITEM§§§'));
+                const listItems = items.map(item => `<li>${item.replace('§§§LISTITEM§§§', '').trim()}</li>`).join('');
+                return `<ul>${listItems}</ul>`;
+            });
+            
+            // Convert ordered lists - better approach with unique markers
+            processedText = processedText.replace(/^[\s]*\d+\.\s+(.+)$/gm, '§§§ORDEREDITEM§§§$1§§§ENDORDEREDITEM§§§');
+            processedText = processedText.replace(/(§§§ORDEREDITEM§§§[^§]+§§§ENDORDEREDITEM§§§(\n|$))+/g, (match) => {
+                const items = match.split('§§§ENDORDEREDITEM§§§').filter(item => item.includes('§§§ORDEREDITEM§§§'));
+                const listItems = items.map(item => `<li>${item.replace('§§§ORDEREDITEM§§§', '').trim()}</li>`).join('');
+                return `<ol>${listItems}</ol>`;
+            });
+            
+            // Convert markdown links
+            processedText = processedText.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // Clean up multiple consecutive newlines before converting to <br>
+            processedText = processedText.replace(/\n\s*\n/g, '\n');
+            
+            // Convert single line breaks to <br>
+            processedText = processedText.replace(/\n/g, '<br>');
+            
+            // Clean up extra line breaks around block elements
+            processedText = processedText.replace(/<br>\s*(<h[1-6]>)/g, '$1');
+            processedText = processedText.replace(/(<\/h[1-6]>)\s*<br>/g, '$1');
+            processedText = processedText.replace(/<br>\s*(<ul>)/g, '$1');
+            processedText = processedText.replace(/(<\/ul>)\s*<br>/g, '$1');
+            processedText = processedText.replace(/<br>\s*(<ol>)/g, '$1');
+            processedText = processedText.replace(/(<\/ol>)\s*<br>/g, '$1');
+            processedText = processedText.replace(/<br>\s*(<blockquote>)/g, '$1');
+            processedText = processedText.replace(/(<\/blockquote>)\s*<br>/g, '$1');
+            processedText = processedText.replace(/<br>\s*(<pre>)/g, '$1');
+            processedText = processedText.replace(/(<\/pre>)\s*<br>/g, '$1');
+            
+            return processedText;
+        }
+
         function sendMessage() {
             const query = queryInput.value.trim();
             if (!query) return;
@@ -331,7 +455,7 @@
             // Show loading indicator
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'system-message';
-            loadingDiv.textContent = 'Thinking...';
+            loadingDiv.innerHTML = 'Thinking<span class="loading-dots"></span>';
             chatContainer.appendChild(loadingDiv);
             
             // Prepare the request data
@@ -424,28 +548,8 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = role === 'user' ? 'user-message' : 'system-message';
             
-            // Process markdown elements
-            let processedText = text;
-            
-            // Convert code blocks with language
-            processedText = processedText.replace(/```(\w+)([\s\S]*?)```/g, (match, lang, code) => {
-                return `<pre><code class="language-${lang}">${code}</code></pre>`;
-            });
-            
-            // Convert code blocks without language
-            processedText = processedText.replace(/```([\s\S]*?)```/g, (match, code) => {
-                return `<pre><code>${code}</code></pre>`;
-            });
-            
-            // Convert inline code
-            processedText = processedText.replace(/`([^`]+)`/g, '<code>$1</code>');
-            
-            // Convert markdown links
-            processedText = processedText.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-            
-            // Convert line breaks
-            processedText = processedText.replace(/\n/g, '<br>');
-            
+            // Process markdown elements using the enhanced function
+            const processedText = processMarkdown(text);
             messageDiv.innerHTML = processedText;
             
             // Add sources if available
