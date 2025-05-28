@@ -197,7 +197,7 @@ class Reranker:
                     padding=True,
                     truncation=True,
                     return_tensors="pt",
-                    max_length=512,
+                    max_length=1024,
                 ).to(self.device)
 
                 # Get scores
@@ -467,8 +467,8 @@ class HybridRetriever:
         semantic_weight: float = 0.8,
         bm25_k1: float = 1.2,
         bm25_b: float = 0.75,
-        retrieval_k: int = 50,  # How many to retrieve from each system
-        rerank_candidates: int = 30,  # How many candidates to rerank
+        retrieval_k: int = 25,  # How many to retrieve from each system
+        rerank_candidates: int = 20,  # How many candidates to rerank
     ):
         """
         Initialize hybrid retriever.
