@@ -16,12 +16,12 @@ class GitLabRAG:
         model_name="Alibaba-NLP/gte-multilingual-base",
         # Reranker parameters
         reranker_model_name="BAAI/bge-reranker-base",
-        reranker_batch_size=8,
+        reranker_batch_size=32,
         # Hybrid parameters
         bm25_index_path="data/embeddings_output/bm25_index.pkl",
         semantic_weight=0.8,
-        retrieval_k=50,
-        rerank_candidates=30,
+        retrieval_k=25,
+        rerank_candidates=20,
     ):
         """
         Initialize the GitLab RAG system with hybrid retrieval.
@@ -39,7 +39,7 @@ class GitLabRAG:
             project_mapping_path=project_mapping_path,
             chunks_dir=chunks_dir,
             model_name=model_name,
-            use_reranker=False,  # We'll do reranking in HybridRetriever
+            use_reranker=False,
         )
 
         # Create reranker
@@ -73,9 +73,16 @@ class GitLabRAG:
 
         return filtered_content
 
-    def ask(self, query, top_k=10):
-        """Ask a question about the codebase."""
-        # Retrieve relevant chunks using hybrid approach
+    def ask(self, query, conversation_history=None, top_k=10):
+        """
+        Ask a question about the codebase.
+        
+        Args:
+            query: The current question to ask
+            conversation_history: Previous conversation for context (not used for retrieval)
+            top_k: Number of chunks to retrieve
+        """
+        # Use ONLY the current query for retrieval - not the conversation history
         chunks = self.retriever.search(query, top_k=top_k)
 
         # Format context for the LLM
@@ -84,8 +91,16 @@ class GitLabRAG:
             filtered_content = self.filter_content(chunk["augmented_content"])
             context += f"[SOURCE {i + 1}]\n{filtered_content}\n\n"
 
+        # Build conversation context for the LLM (separate from retrieval)
+        conversation_context = ""
+        if conversation_history:
+            conversation_context = "CONVERSATION HISTORY:\n"
+            for msg in conversation_history[-2:]:  # Last 2 exchanges for context
+                conversation_context += f"User: {msg['query']}\nAssistant: {msg['answer']}\n\n"
+            conversation_context += "---\n\n"
+
         # Format prompt for Claude
-        prompt = f"{context}\nQUESTION: {query}\n\nANSWER:"
+        prompt = f"{conversation_context}{context}\nCURRENT QUESTION: {query}\n\nANSWER:"
 
         # Create system prompt
         system_prompt = """You are a specialised assistant for a GitLab codebase.
@@ -93,15 +108,16 @@ class GitLabRAG:
         Your primary function is to answer questions about code, documentation, and project structure by referencing the provided context.
 
         When responding:
-        1. Base your answers only on the context provided, not on prior knowledge
-        2. If the context doesn't contain relevant information, say so clearly
-        3. Cite specific sources by referring to their source numbers ([SOURCE X])
-        4. Use markdown formatting for code snippets and technical explanations
-        5. Be concise but thorough in your explanations
-        6. Do not hallucinate file paths, function names, or code that isn't in the context
-        7. If the answer requires combining information from multiple chunks, explain how they relate
+        1. Base your answers primarily on the CONTEXT provided, not on prior knowledge
+        2. Use the conversation history to understand the context of the current question, but focus on answering the CURRENT QUESTION
+        3. If the context doesn't contain relevant information for the current question, say so clearly
+        4. Cite specific sources by referring to their source numbers ([SOURCE X])
+        5. Use markdown formatting for code snippets and technical explanations
+        6. Be concise but thorough in your explanations
+        7. Do not hallucinate file paths, function names, or code that isn't in the context
+        8. If the answer requires combining information from multiple chunks, explain how they relate
 
-        The context contains chunks from various projects with their metadata."""
+        The context contains chunks specifically retrieved for the current question."""
 
         # Call Claude
         response = self.client.messages.create(

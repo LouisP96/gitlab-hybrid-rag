@@ -9,8 +9,8 @@ from flask_cors import CORS
 def create_app(
     rag_instance=None,
     semantic_weight=0.8,
-    retrieval_k=50,
-    rerank_candidates=30,
+    retrieval_k=25,
+    rerank_candidates=20,
     reranker_batch_size=8,
     reranker_model="BAAI/bge-reranker-base",
     **other_kwargs,
@@ -117,23 +117,9 @@ def create_app(
             logger.info(f"Received query: {query}")
             logger.info(f"History length: {len(conversation_history)}")
 
-            # Simple way to include conversation history in the query
-            if conversation_history:
-                context = "\n".join(
-                    [
-                        f"User: {msg['query']}\nSystem: {msg['answer']}"
-                        for msg in conversation_history[-3:]
-                    ]
-                )  # Last 3 messages
-                enhanced_query = (
-                    f"Previous conversation:\n{context}\n\nNew question: {query}"
-                )
-            else:
-                enhanced_query = query
-
-            # Get response from RAG system
+            # Get response from RAG system - pass history separately
             logger.info("Sending query to RAG system...")
-            response = rag.ask(enhanced_query, top_k=10)
+            response = rag.ask(query, conversation_history=conversation_history, top_k=10)
             logger.info("Received response from RAG system")
 
             # Add CORS headers
@@ -141,7 +127,7 @@ def create_app(
                 {
                     "answer": response["answer"],
                     "sources": response.get("sources", []),
-                    "hybrid_search_enabled": True,  # Always enabled now
+                    "hybrid_search_enabled": True,
                 }
             )
             return resp
