@@ -4,176 +4,392 @@
     <title>GitLab Code Assistant</title>
     <style>
         body {
-            font-family: 'GitLab Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-            max-width: 1200px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f6f8fa;
+            color: #24292f;
         }
+        
+        .main-container {
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+        }
+        
+        .app-header {
+            background: linear-gradient(90deg, #1f2328 0%, #656d76 100%);
+            color: white;
+            padding: 20px 24px;
+            font-weight: 600;
+            font-size: 18px;
+            position: relative;
+        }
+        
         #chat-container {
-            height: 900px;
-            border: 1px solid #ccc;
-            padding: 10px;
+            height: calc(100vh - 300px);
+            min-height: 400px;
+            max-height: 800px;
+            padding: 24px;
             overflow-y: auto;
-            margin-bottom: 10px;
+            background: #f6f8fa;
+            border-bottom: 1px solid #d0d7de;
+            resize: vertical;
+            position: relative;
         }
+        
+        /* Responsive adjustments */
+        @media (max-height: 800px) {
+            #chat-container {
+                height: calc(100vh - 250px);
+                min-height: 300px;
+            }
+        }
+        
+        @media (max-height: 600px) {
+            #chat-container {
+                height: calc(100vh - 200px);
+                min-height: 250px;
+            }
+        }
+        
+        /* Add a subtle resize handle indicator */
+        #chat-container::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, transparent 0%, transparent 40%, #d0d7de 40%, #d0d7de 60%, transparent 60%);
+            cursor: ns-resize;
+            pointer-events: none;
+        }
+        
         .user-message {
-            background-color: #e6f7ff;
-            padding: 8px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            max-width: 80%;
+            margin-left: auto;
+            color: #1e40af;
+            font-weight: 500;
         }
+        
         .system-message {
-            background-color: #f5f5f5;
-            padding: 8px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            background: white;
+            border: 1px solid #d1d5da;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            max-width: 85%;
+            color: #24292f;
+            line-height: 1.6;
         }
+        
         .error-message {
-            background-color: #ffebee;
-            padding: 8px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            border-left: 4px solid #f44336;
+            background: #ffeef0;
+            border: 1px solid #f85149;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            max-width: 85%;
+            color: #cf222e;
+            border-left: 4px solid #f85149;
         }
+        
         .source {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
+            background: #f1f8ff;
+            border: 1px solid #c9e6ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #656d76;
         }
+        
         .source-details {
-            margin-left: 15px;
-            padding-left: 10px;
-            border-left: 2px solid #eaeaea;
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            display: none;
         }
+        
         .source-item {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            padding: 10px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            background: #f6f8fa;
         }
+        
+        .source-item:last-child {
+            margin-bottom: 0;
+        }
+        
         .source-item table {
             border-collapse: collapse;
             width: 100%;
-            margin-top: 3px;
+            margin-top: 6px;
         }
+        
         .source-item table th,
         .source-item table td {
             text-align: left;
-            padding: 4px;
-            font-size: 11px;
-            border-bottom: 1px solid #eee;
+            padding: 6px 8px;
+            font-size: 12px;
+            border-bottom: 1px solid #e1e4e8;
         }
+        
         .source-item table th {
-            font-weight: bold;
-            color: #555;
-            width: 100px;
+            font-weight: 600;
+            color: #656d76;
+            width: 120px;
+            background: #f6f8fa;
         }
+        
+        .source-item table td {
+            color: #24292f;
+        }
+        
         #input-container {
             display: flex;
+            gap: 12px;
+            padding: 20px 24px;
+            background: white;
+            align-items: center;
         }
+        
         #query-input {
             flex-grow: 1;
-            padding: 8px;
-            margin-right: 10px;
+            padding: 10px 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            color: #24292f;
         }
+        
+        #query-input:focus {
+            outline: none;
+            border-color: #0969da;
+            box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
+        }
+        
         #send-button {
-            padding: 8px 15px;
+            padding: 10px 20px;
+            background: #1f883d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
         }
+        
+        #send-button:hover {
+            background: #1a7f37;
+        }
+        
+        #send-button:disabled {
+            background: #8c959f;
+            cursor: not-allowed;
+        }
+        
         #status-indicator {
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 5px;
+            margin: 16px 24px;
+            padding: 12px 16px;
+            border-radius: 6px;
             display: none;
+            font-size: 14px;
         }
+        
         .api-success {
-            background-color: #e8f5e9;
-            border-left: 4px solid #4caf50;
+            background: #dcfce7;
+            border: 1px solid #16a34a;
+            color: #15803d;
         }
+        
         .api-error {
-            background-color: #ffebee;
-            border-left: 4px solid #f44336;
+            background: #ffeef0;
+            border: 1px solid #f85149;
+            color: #cf222e;
         }
+        
         code, pre {
-            background: #f0f0f0;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'GitLab Mono', 'Menlo', 'DejaVu Sans Mono', 'Liberation Mono', 'Consolas', 'Ubuntu Mono', 'Courier New', 'andale mono', 'lucida console', monospace;
+            background: #f6f8fa;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
         }
+        
+        code {
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+        
         pre {
-            padding: 10px;
+            padding: 12px 16px;
             overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
         }
+        
+        pre code {
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        
         #debug-panel {
             margin-bottom: 20px;
             font-size: 12px;
-            color: #666;
-            background-color: #f9f9f9;
-            padding: 10px;
-            border-radius: 5px;
+            color: #656d76;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            overflow: hidden;
         }
+        
+        #debug-panel details {
+            padding: 12px 16px;
+        }
+        
+        #debug-panel summary {
+            cursor: pointer;
+            font-weight: 500;
+            color: #24292f;
+        }
+        
+        #debug-panel summary:hover {
+            color: #0969da;
+        }
+        
         #test-result {
-            margin-top: 5px;
-            padding: 5px;
-            background-color: #f5f5f5;
-            border-radius: 5px;
-            font-size: 12px;
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #f6f8fa;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: ui-monospace, monospace;
         }
+        
         .source-toggle {
             cursor: pointer;
             user-select: none;
-            color: #1976d2;
+            color: #0969da;
+            font-weight: 600;
         }
+        
         .source-toggle:hover {
+            color: #0550ae;
             text-decoration: underline;
         }
+        
         .feature-badge {
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
             font-size: 11px;
-            font-weight: bold;
-            margin-left: 5px;
-            background-color: #e3f2fd;
-            color: #0d47a1;
+            font-weight: 600;
+            margin-left: 8px;
+            background: #0969da;
+            color: white;
         }
+        
         .rank-info {
             font-size: 11px;
-            color: #666;
-            margin-top: 2px;
+            color: #656d76;
+            margin-top: 6px;
+            padding: 6px 8px;
+            background: #f6f8fa;
+            border-radius: 4px;
         }
+        
         .original-rank {
-            background-color: #fff3e0;
-            padding: 1px 3px;
-            border-radius: 2px;
+            background: #fff8c5;
+            border: 1px solid #d4ac00;
+            padding: 2px 6px;
+            border-radius: 3px;
             font-size: 10px;
+            font-weight: 600;
         }
         
-        /* Enhanced markdown styles */
+        /* Enhanced markdown styles with GitHub styling */
         h1, h2, h3, h4, h5, h6 {
-            margin: 8px 0 2px 0;
-            font-weight: bold;
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            line-height: 1.25;
         }
-        h1 { font-size: 1.5em; color: #333; }
-        h2 { font-size: 1.3em; color: #444; }
-        h3 { font-size: 1.2em; color: #555; }
-        h4 { font-size: 1.1em; color: #666; }
-        h5 { font-size: 1.05em; color: #777; }
-        h6 { font-size: 1em; color: #888; }
         
-        strong { font-weight: bold; }
-        em { font-style: italic; }
+        h1 { 
+            font-size: 1.5em; 
+            color: #24292f;
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 8px;
+        }
+        
+        h2 { 
+            font-size: 1.25em; 
+            color: #24292f;
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 6px;
+        }
+        
+        h3 { 
+            font-size: 1.125em; 
+            color: #24292f; 
+        }
+        
+        h4, h5, h6 { 
+            font-size: 1em; 
+            color: #656d76; 
+        }
+        
+        strong { 
+            font-weight: 600; 
+            color: #24292f;
+        }
+        
+        em { 
+            font-style: italic; 
+        }
         
         ul, ol {
-            margin: 8px 0;
-            padding-left: 20px;
+            margin: 12px 0;
+            padding-left: 24px;
         }
+        
         li {
-            margin: 0;
-            line-height: 1.4;
+            margin: 4px 0;
+            line-height: 1.5;
         }
         
         blockquote {
-            border-left: 3px solid #ddd;
-            margin: 8px 0;
-            padding-left: 12px;
-            color: #666;
+            border-left: 4px solid #d0d7de;
+            margin: 12px 0;
+            padding: 0 12px;
+            color: #656d76;
+            background: #f6f8fa;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        a {
+            color: #0969da;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
         }
         
         /* Loading animation */
@@ -196,33 +412,91 @@
                 content: "";
             }
         }
+        
+        /* Source header styling */
+        .source-item > div:first-child {
+            font-weight: 600;
+            color: #24292f;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .source-score {
+            background: #0969da;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        /* Debug panel buttons */
+        #debug-panel button {
+            background: #f6f8fa;
+            border: 1px solid #d0d7de;
+            color: #24292f;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 8px;
+            margin-top: 8px;
+        }
+        
+        #debug-panel button:hover {
+            background: #f1f3f4;
+            border-color: #afb8c1;
+        }
+        
+        /* Status indicator retry button */
+        #status-indicator button {
+            background: #f6f8fa;
+            border: 1px solid #d0d7de;
+            color: #24292f;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 12px;
+        }
+        
+        #status-indicator button:hover {
+            background: #f1f3f4;
+        }
     </style>
 </head>
 <body>
-    <h1>GitLab Code Assistant</h1>
-    
-    <!-- Debug Panel -->
-    <div id="debug-panel">
-        <details>
-            <summary>Debug Info (click to expand)</summary>
-            <p>Page URL: <span id="debug-page-url"></span></p>
-            <p>API Base URL: <span id="debug-api-url"></span></p>
-            <p>Hybrid Search: <span id="debug-hybrid">Unknown</span></p>
-            <p>Last API Response: <span id="debug-last-response">None</span></p>
-            <div>
-                <button id="test-debug-btn">Test Debug API</button>
-                <button id="test-ask-btn">Test Ask API</button>
-                <div id="test-result"></div>
-            </div>
-        </details>
-    </div>
-    
-    <div id="status-indicator"></div>
-    
-    <div id="chat-container"></div>
-    <div id="input-container">
-        <input type="text" id="query-input" placeholder="Ask a question about your codebase...">
-        <button id="send-button">Send</button>
+    <div class="main-container">
+        <div class="app-header">
+            GitLab Code Assistant
+        </div>
+        
+        <!-- Debug Panel -->
+        <div id="debug-panel">
+            <details>
+                <summary>Debug Info (click to expand)</summary>
+                <p>Page URL: <span id="debug-page-url"></span></p>
+                <p>API Base URL: <span id="debug-api-url"></span></p>
+                <p>Hybrid Search: <span id="debug-hybrid">Unknown</span></p>
+                <p>Last API Response: <span id="debug-last-response">None</span></p>
+                <div>
+                    <button id="test-debug-btn">Test Debug API</button>
+                    <button id="test-ask-btn">Test Ask API</button>
+                    <div id="test-result"></div>
+                </div>
+            </details>
+        </div>
+        
+        <div id="status-indicator"></div>
+        
+        <div id="chat-container"></div>
+        
+        <div id="input-container">
+            <input type="text" id="query-input" placeholder="Ask a question about your codebase...">
+            <button id="send-button">Send</button>
+        </div>
     </div>
 
     <script>
@@ -364,7 +638,6 @@
                     // Add a retry button
                     const retryButton = document.createElement('button');
                     retryButton.textContent = 'Retry';
-                    retryButton.style.marginLeft = '10px';
                     retryButton.onclick = function() {
                         checkApiHealth();
                     };
@@ -561,7 +834,7 @@
                 const sourcesToggle = document.createElement('div');
                 sourcesToggle.className = 'source-toggle';
                 
-                let toggleText = `<strong>Sources (${sources.length}):</strong>`;
+                let toggleText = `<strong>📚 Sources (${sources.length}):</strong>`;
                 
                 // Add hybrid search badge
                 if (hybridSearchEnabled) {
@@ -606,8 +879,10 @@
                     // Add relevance score - now always from reranker in hybrid mode
                     if (source.score !== undefined) {
                         // Hybrid search always uses reranker scores
-                        const scoreDisplay = `Score: ${source.score.toFixed(2)}`;
-                        header.innerHTML += ` (${scoreDisplay})`;
+                        const scoreSpan = document.createElement('span');
+                        scoreSpan.className = 'source-score';
+                        scoreSpan.textContent = `Score: ${source.score.toFixed(2)}`;
+                        header.appendChild(scoreSpan);
                     }
                     
                     sourceItem.appendChild(header);
