@@ -12,7 +12,7 @@ def create_app(
     retrieval_k=25,
     rerank_candidates=20,
     reranker_batch_size=8,
-    reranker_model="BAAI/bge-reranker-base",
+    reranker_model="BAAI/bge-reranker-v2-m3",
     **other_kwargs,
 ):
     """Create and configure the Flask application
@@ -127,7 +127,8 @@ def create_app(
                 {
                     "answer": response["answer"],
                     "sources": response.get("sources", []),
-                    "hybrid_search_enabled": True,
+                    "hybrid_search_enabled": True,  
+                    "query_rewriter_enabled": True, 
                 }
             )
             return resp
@@ -162,6 +163,7 @@ def create_app(
                         "retrieval_k": retrieval_k,
                         "rerank_candidates": rerank_candidates,
                         "reranker_model": reranker_model,
+                        "query_rewriter": True, 
                     }
                 except Exception as e:
                     hybrid_status = f"error: {str(e)}"

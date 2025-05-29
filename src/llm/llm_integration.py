@@ -1,6 +1,66 @@
 from src.retrieval.query_embeddings import RAGRetriever, Reranker, HybridRetriever
 import anthropic
 import re
+from typing import List, Dict, Any, Optional
+
+
+class QueryRewriter:
+    """
+    Uses Claude to intelligently rewrite queries based on conversation context.
+    """
+    
+    def __init__(self, client):
+        self.client = client
+    
+    def rewrite_query(self, query: str, conversation_history: List[Dict]) -> str:
+        """
+        Use Claude to rewrite the query with appropriate context.
+        
+        Args:
+            query: Original user query
+            conversation_history: Previous conversation
+            
+        Returns:
+            Rewritten query optimized for retrieval
+        """
+        if not conversation_history:
+            return query
+            
+        # Build context from recent conversation
+        context = ""
+        for entry in conversation_history[-2:]:
+            context += f"User: {entry['query']}\nAssistant: {entry['answer']}\n\n"
+        
+        rewrite_prompt = f"""Given this conversation context and the user's new query, rewrite the query to be optimal for code/documentation search.
+
+        CONVERSATION CONTEXT:
+        {context}
+
+        USER'S NEW QUERY: {query}
+
+        Instructions:
+        1. If this is a follow-up question, expand it with relevant context from the conversation
+        2. If this is a completely new topic, return the original query unchanged
+        3. Keep technical terms, function names, file names from the context if relevant
+        4. Make the query specific and searchable
+
+        Return only the rewritten query, nothing else."""
+
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=100,
+                temperature=0.1,
+                messages=[{"role": "user", "content": rewrite_prompt}]
+            )
+            
+            rewritten = response.content[0].text.strip()
+            print(f"Query rewritten from '{query}' to '{rewritten}'")
+            return rewritten
+            
+        except Exception as e:
+            print(f"Query rewriting failed: {e}, using original query")
+            return query
 
 
 class GitLabRAG:
@@ -15,7 +75,7 @@ class GitLabRAG:
         chunks_dir="data/enriched_output",
         model_name="Alibaba-NLP/gte-multilingual-base",
         # Reranker parameters
-        reranker_model_name="BAAI/bge-reranker-base",
+        reranker_model_name="BAAI/bge-reranker-v2-m3",
         reranker_batch_size=32,
         # Hybrid parameters
         bm25_index_path="data/embeddings_output/bm25_index.pkl",
@@ -25,13 +85,7 @@ class GitLabRAG:
     ):
         """
         Initialize the GitLab RAG system with hybrid retrieval.
-
-        Args:
-            api_key: API key for the LLM service
-            filtered_words: List of words to filter out from chunk content
-            Other args: Configuration for vector retriever, reranker, and BM25
         """
-
         # Create vector retriever (without reranking)
         vector_retriever = RAGRetriever(
             index_path=index_path,
@@ -59,6 +113,9 @@ class GitLabRAG:
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.filtered_words = filtered_words or []
+        
+        # Initialize query rewriter
+        self.query_rewriter = QueryRewriter(self.client)
 
     def filter_content(self, content):
         """Filter out specified words from the content."""
@@ -75,15 +132,18 @@ class GitLabRAG:
 
     def ask(self, query, conversation_history=None, top_k=10):
         """
-        Ask a question about the codebase.
+        Ask a question about the codebase with intelligent query rewriting.
         
         Args:
             query: The current question to ask
-            conversation_history: Previous conversation for context (not used for retrieval)
+            conversation_history: Previous conversation for context
             top_k: Number of chunks to retrieve
         """
-        # Use ONLY the current query for retrieval - not the conversation history
-        chunks = self.retriever.search(query, top_k=top_k)
+        # Use Claude to rewrite the query if needed
+        retrieval_query = self.query_rewriter.rewrite_query(query, conversation_history or [])
+        
+        # Retrieve chunks using the (possibly rewritten) query
+        chunks = self.retriever.search(retrieval_query, top_k=top_k)
 
         # Format context for the LLM
         context = "CONTEXT:\n\n"
@@ -91,11 +151,11 @@ class GitLabRAG:
             filtered_content = self.filter_content(chunk["augmented_content"])
             context += f"[SOURCE {i + 1}]\n{filtered_content}\n\n"
 
-        # Build conversation context for the LLM (separate from retrieval)
+        # Build conversation context for the LLM
         conversation_context = ""
         if conversation_history:
             conversation_context = "CONVERSATION HISTORY:\n"
-            for msg in conversation_history[-2:]:  # Last 2 exchanges for context
+            for msg in conversation_history[-2:]:
                 conversation_context += f"User: {msg['query']}\nAssistant: {msg['answer']}\n\n"
             conversation_context += "---\n\n"
 
@@ -116,6 +176,8 @@ class GitLabRAG:
         6. Be concise but thorough in your explanations
         7. Do not hallucinate file paths, function names, or code that isn't in the context
         8. If the answer requires combining information from multiple chunks, explain how they relate
+        9. Use British English
+        10. For follow-up questions, ensure you maintain consistency with previous answers while providing new information
 
         The context contains chunks specifically retrieved for the current question."""
 
@@ -137,7 +199,6 @@ class GitLabRAG:
                 "retrieval_method": chunk.get("retrieval_method", "unknown"),
             }
 
-            # Add optional metadata fields if they exist
             metadata_fields = [
                 "path",
                 "type",
