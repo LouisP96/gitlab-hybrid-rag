@@ -22,7 +22,7 @@ class RAGRetriever:
         chunks_dir="data/enriched_output",
         model_name="Alibaba-NLP/gte-multilingual-base",
         use_reranker=False,
-        reranker_model_name="BAAI/bge-reranker-base",
+        reranker_model_name="BAAI/bge-reranker-v2-m3",
     ):
         # Load index
         self.index = faiss.read_index(index_path)
@@ -143,7 +143,7 @@ class RAGRetriever:
 
 
 class Reranker:
-    def __init__(self, model_name="BAAI/bge-reranker-base", batch_size=8):
+    def __init__(self, model_name="BAAI/bge-reranker-v2-m3", batch_size=8):
         """
         Initialize the reranker.
 
@@ -184,11 +184,28 @@ class Reranker:
         # Extract document texts
         texts = [doc[content_key] for doc in documents]
 
+        # DEBUG: Print query and chunk info
+        print(f"\n=== RERANKER DEBUG ===")
+        print(f"Query length: {len(query)} chars")
+        print(f"Query (first 100 chars): {query[:100]}...")
+        print(f"Number of chunks to rerank: {len(texts)}")
+        
+        for i, text in enumerate(texts):
+            print(f"Chunk {i+1}: {len(text)} chars, first 50 chars: {text[:50].replace(chr(10), ' ')}...")
+
         scores = []
 
         with torch.no_grad():
             for i in range(0, len(texts), self.batch_size):
                 batch_texts = texts[i : i + self.batch_size]
+                
+                print(f"\nProcessing batch starting at index {i}, batch size: {len(batch_texts)}")
+
+                # DEBUG: Check tokenization before model call
+                for j, text in enumerate(batch_texts):
+                    combined_text = f"{query} {text}"
+                    tokens = self.tokenizer.encode(combined_text, add_special_tokens=True)
+                    print(f"  Pair {i+j+1}: Combined length = {len(tokens)} tokens")
 
                 # Tokenize query and documents
                 features = self.tokenizer(
@@ -203,6 +220,8 @@ class Reranker:
                 # Get scores
                 batch_scores = self.model(**features).logits.squeeze(-1).cpu().numpy()
                 scores.extend(batch_scores.tolist())
+
+        print(f"=== END RERANKER DEBUG ===\n")
 
         # Create a copy of the documents list to avoid modifying the original
         reranked_docs = documents.copy()
@@ -461,7 +480,7 @@ class HybridRetriever:
 
     def __init__(
         self,
-        vector_retriever,  # Existing RAGRetriever (without reranking)
+        vector_retriever,  # Existing RAGRetriever
         reranker,
         bm25_index_path: str = "data/embeddings_output/bm25_index.pkl",
         semantic_weight: float = 0.8,
@@ -474,7 +493,7 @@ class HybridRetriever:
         Initialize hybrid retriever.
 
         Args:
-            vector_retriever: RAGRetriever instance (should not have reranking enabled)
+            vector_retriever: RAGRetriever instance
             reranker: Reranker instance
             bm25_index_path: Path to BM25 index
             semantic_weight: Weight for semantic search in fusion (default 0.8)
@@ -544,9 +563,11 @@ class HybridRetriever:
         """
         print(f"Hybrid search: retrieving top {self.retrieval_k} from each system")
 
-        # 1. Get semantic search results (no reranking)
+        # 1. Get semantic search results (just rankings, not full document data)
         semantic_results = self.vector_retriever.search(
-            query=query, top_k=self.retrieval_k, metadata_fields=metadata_fields
+            query=query, 
+            top_k=self.retrieval_k, 
+            metadata_fields=None  # Don't load metadata yet
         )
 
         # 2. Get BM25 search results
@@ -568,71 +589,104 @@ class HybridRetriever:
 
         print(f"Fusion produced {len(combined_rankings)} unique results")
 
-        # 5. Build document list for reranking
+        # 5. Load document data uniformly for all results
         fusion_results = []
-        semantic_results_dict = {doc["chunk_id"]: doc for doc in semantic_results}
-
-        for chunk_id, fusion_score in combined_rankings:
-            if chunk_id in semantic_results_dict:
-                # Use existing document data
-                result = semantic_results_dict[chunk_id].copy()
-                result["fusion_score"] = fusion_score
-                result["retrieval_method"] = "hybrid"
-                fusion_results.append(result)
-            else:
-                # Document found only by BM25 - load it
-                doc = self._load_document_by_chunk_id(chunk_id, metadata_fields)
-                if doc:
-                    doc["fusion_score"] = fusion_score
+        
+        # Take top candidates for reranking
+        rerank_count = min(len(combined_rankings), self.rerank_candidates)
+        top_chunk_ids = [chunk_id for chunk_id, _ in combined_rankings[:rerank_count]]
+        
+        # Load all documents at once
+        loaded_docs = self._load_documents_by_chunk_ids(top_chunk_ids, metadata_fields)
+        
+        # Build results with fusion scores and retrieval method info
+        for chunk_id, fusion_score in combined_rankings[:rerank_count]:
+            if chunk_id in loaded_docs:
+                doc = loaded_docs[chunk_id].copy()
+                doc["fusion_score"] = fusion_score
+                
+                # Determine retrieval method
+                was_in_semantic = chunk_id in [r[0] for r in semantic_rankings]
+                was_in_bm25 = chunk_id in [r[0] for r in bm25_rankings]
+                
+                if was_in_semantic and was_in_bm25:
+                    doc["retrieval_method"] = "hybrid"
+                elif was_in_semantic:
+                    doc["retrieval_method"] = "semantic_only"
+                else:
                     doc["retrieval_method"] = "bm25_only"
-                    fusion_results.append(doc)
+                    
+                fusion_results.append(doc)
 
         print(f"Prepared {len(fusion_results)} documents for reranking")
 
-        # 6. Apply reranking to configurable number of candidates
-        rerank_count = min(len(fusion_results), self.rerank_candidates)
-        candidates_for_reranking = fusion_results[:rerank_count]
-
-        print(f"Reranking top {len(candidates_for_reranking)} candidates")
-        reranked_results = self.reranker.rerank(query, candidates_for_reranking)
+        # 6. Apply reranking
+        print(f"Reranking {len(fusion_results)} candidates")
+        reranked_results = self.reranker.rerank(query, fusion_results)
 
         # 7. Return final top_k results
         return reranked_results[:top_k]
 
-    def _load_document_by_chunk_id(
-        self, chunk_id: str, metadata_fields: Optional[List[str]] = None
-    ) -> Optional[Dict[str, Any]]:
-        """Load a document by chunk ID from the file system."""
+
+    def _load_documents_by_chunk_ids(
+        self, chunk_ids: List[str], metadata_fields: Optional[List[str]] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Load multiple documents by chunk IDs efficiently.
+        
+        Args:
+            chunk_ids: List of chunk IDs to load
+            metadata_fields: Metadata fields to include
+            
+        Returns:
+            Dictionary mapping chunk_id to document data
+        """
+        if metadata_fields is None:
+            metadata_fields = [
+                "path", "type", "language", "filename", "chunk_type", 
+                "parent_id", "author", "issue_id"
+            ]
+        
+        loaded_docs = {}
         chunks_dir = Path(self.vector_retriever.chunks_dir)
-        project = self.vector_retriever.chunk_to_project.get(chunk_id, "unknown")
+        
+        # Group chunk IDs by project for more efficient loading
+        chunks_by_project = {}
+        for chunk_id in chunk_ids:
+            project = self.vector_retriever.chunk_to_project.get(chunk_id, "unknown")
+            if project != "unknown":
+                if project not in chunks_by_project:
+                    chunks_by_project[project] = []
+                chunks_by_project[project].append(chunk_id)
+        
+        # Load documents project by project
+        for project, project_chunk_ids in chunks_by_project.items():
+            project_dir = chunks_dir / project
+            
+            for chunk_id in project_chunk_ids:
+                file_path = project_dir / f"{chunk_id}.json"
+                
+                if file_path.exists():
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            chunk_data = json.load(f)
 
-        if project == "unknown":
-            return None
+                        result = {
+                            "chunk_id": chunk_id,
+                            "score": 0.0,  # Will be set by fusion/reranker
+                            "project": project,
+                            "augmented_content": chunk_data.get("augmented_content", ""),
+                        }
 
-        file_path = chunks_dir / project / f"{chunk_id}.json"
+                        # Add metadata fields consistently
+                        metadata = chunk_data.get("metadata", {})
+                        for field in metadata_fields:
+                            if field in metadata:
+                                result[field] = metadata[field]
 
-        if file_path.exists():
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    chunk_data = json.load(f)
-
-                result = {
-                    "chunk_id": chunk_id,
-                    "score": 0.0,  # Will be set by reranker
-                    "project": project,
-                    "augmented_content": chunk_data.get("augmented_content", ""),
-                }
-
-                if metadata_fields:
-                    metadata = chunk_data.get("metadata", {})
-                    for field in metadata_fields:
-                        if field in metadata:
-                            result[field] = metadata[field]
-
-                return result
-
-            except Exception as e:
-                print(f"Error loading document {chunk_id}: {e}")
-                return None
-
-        return None
+                        loaded_docs[chunk_id] = result
+                        
+                    except Exception as e:
+                        print(f"Error loading document {chunk_id}: {e}")
+        
+        return loaded_docs
