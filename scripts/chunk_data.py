@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Chunking script for GitLab RAG system.
 
@@ -14,21 +14,6 @@ import pickle
 
 from src.processing.base_processor import Document
 from src.indexing.chunking import chunk_documents, Chunk
-
-
-def setup_logging(log_level: str = "INFO") -> logging.Logger:
-    """Set up logging configuration."""
-    numeric_level = getattr(logging, log_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {log_level}")
-
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    return logging.getLogger("chunk_data")
 
 
 def load_documents(
@@ -56,7 +41,7 @@ def load_documents(
     else:
         projects = [d.name for d in input_dir.iterdir() if d.is_dir()]
 
-    logger.info(f"Loading documents from {len(projects)} projects")
+    logging.info(f"Loading documents from {len(projects)} projects")
 
     for project in projects:
         project_dir = input_dir / project
@@ -68,7 +53,7 @@ def load_documents(
             # Load JSON documents from this processor
             json_files = list(processor_dir.glob("*.json"))
 
-            logger.info(
+            logging.info(
                 f"Loading {len(json_files)} documents from {processor_dir.name}"
             )
 
@@ -85,9 +70,9 @@ def load_documents(
                     )
                     documents.append(doc)
                 except Exception as e:
-                    logger.error(f"Error loading {json_file}: {str(e)}")
+                    logging.error(f"Error loading {json_file}: {str(e)}")
 
-    logger.info(f"Loaded {len(documents)} documents total")
+    logging.info(f"Loaded {len(documents)} documents total")
     return documents
 
 
@@ -122,7 +107,7 @@ def save_chunks(
             project_dir = output_dir / project
             project_dir.mkdir(exist_ok=True)
 
-            logger.info(f"Saving {len(project_chunks)} chunks for project {project}")
+            logging.info(f"Saving {len(project_chunks)} chunks for project {project}")
 
             if save_format == "json":
                 for chunk in project_chunks:
@@ -144,7 +129,7 @@ def save_chunks(
                     pickle.dump(project_chunks, f)
     else:
         # Save all chunks to a single directory
-        logger.info(f"Saving {len(chunks)} chunks to {output_dir}")
+        logging.info(f"Saving {len(chunks)} chunks to {output_dir}")
 
         if save_format == "json":
             for chunk in chunks:
@@ -225,8 +210,11 @@ def main():
     print(args)
 
     # Set up logging
-    global logger
-    logger = setup_logging(args.log_level)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
     # Convert paths to Path objects
     input_dir = Path(args.input_dir)
@@ -236,11 +224,11 @@ def main():
     documents = load_documents(input_dir, args.project)
 
     if not documents:
-        logger.error("No documents found to process")
+        logging.error("No documents found to process")
         return
 
     # Chunk documents
-    logger.info(
+    logging.info(
         f"Chunking {len(documents)} documents with max chunk_size={args.max_chunk_size}, "
         f"chunk_overlap={args.chunk_overlap}"
     )
@@ -252,12 +240,12 @@ def main():
         max_chunk_size=args.max_chunk_size,
     )
 
-    logger.info(f"Created {len(chunks)} chunks")
+    logging.info(f"Created {len(chunks)} chunks")
 
     # Save chunks
     save_chunks(chunks, output_dir, save_format=args.format, by_project=not args.flat)
 
-    logger.info(f"Chunking complete. Results saved to {output_dir}")
+    logging.info(f"Chunking complete. Results saved to {output_dir}")
 
 
 if __name__ == "__main__":

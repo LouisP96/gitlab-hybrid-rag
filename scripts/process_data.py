@@ -6,16 +6,12 @@ This script runs the processing pipeline on GitLab backup data,
 extracting and structuring documents from code, issues, wiki pages, etc.
 """
 
-import os
-import sys
 import logging
 import argparse
 import time
-from src.processing.pipeline import ProcessingPipeline
+import sys
 
-# Add project root to path to import our modules
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_root)
+from src.processing.pipeline import ProcessingPipeline
 
 
 def parse_arguments():
@@ -24,7 +20,7 @@ def parse_arguments():
         description="Process GitLab backup data for RAG system"
     )
     parser.add_argument(
-        "--gitlab-dir", required=True, help="Path to GitLab backup directory"
+        "--input-dir", required=True, help="Path to GitLab data directory"
     )
     parser.add_argument(
         "--output-dir",
@@ -66,7 +62,7 @@ def main():
     try:
         # Create pipeline
         pipeline = ProcessingPipeline(
-            gitlab_backup_dir=args.gitlab_dir,
+            gitlab_backup_dir=args.input_dir,
             output_dir=args.output_dir,
             max_workers=args.workers,
             log_level=logging.INFO,

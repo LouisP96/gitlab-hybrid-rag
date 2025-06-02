@@ -1,32 +1,28 @@
+#!/usr/bin/env python3
+"""
+Build BM25 index for GitLab RAG system.
+
+This script builds a BM25 index from enriched chunks for hybrid search.
+"""
+
 import json
 import nltk
+import argparse
 from pathlib import Path
-from query_embeddings import BM25Index
 
-# Download required NLTK data (run once)
-try:
-    nltk.data.find("tokenizers/punkt_tab")
-except LookupError:
-    nltk.download("punkt_tab")
-
-try:
-    nltk.data.find("corpora/stopwords")
-except LookupError:
-    nltk.download("stopwords")
+from src.retrieval.query_embeddings import BM25Index
 
 
-def build_bm25_index():
+def main():
     """CLI script to pre-build BM25 index."""
-    import argparse
-
     parser = argparse.ArgumentParser(description="Build BM25 index for hybrid search")
     parser.add_argument(
-        "--chunks-dir",
+        "--input-dir",
         default="data/enriched_output",
         help="Directory containing chunk files",
     )
     parser.add_argument(
-        "--output",
+        "--output-file",
         default="data/embeddings_output/bm25_index.pkl",
         help="Output path for BM25 index",
     )
@@ -35,15 +31,26 @@ def build_bm25_index():
 
     args = parser.parse_args()
 
+    # Download required NLTK data (run once)
+    try:
+        nltk.data.find("tokenizers/punkt_tab")
+    except LookupError:
+        nltk.download("punkt_tab")
+
+    try:
+        nltk.data.find("corpora/stopwords")
+    except LookupError:
+        nltk.download("stopwords")
+
     # Initialize BM25 index
     bm25_index = BM25Index(k1=args.k1, b=args.b)
 
     # Load documents
-    chunks_dir = Path(args.chunks_dir)
+    input_dir = Path(args.input_dir)
     documents = []
 
     print("Loading documents...")
-    for project_dir in chunks_dir.iterdir():
+    for project_dir in input_dir.iterdir():
         if project_dir.is_dir():
             for json_file in project_dir.glob("*.json"):
                 try:
@@ -60,11 +67,11 @@ def build_bm25_index():
     bm25_index.build_index(documents)
 
     # Create output directory if needed
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    bm25_index.save_index(args.output)
+    Path(args.output_file).parent.mkdir(parents=True, exist_ok=True)
+    bm25_index.save_index(args.output_file)
 
-    print(f"BM25 index saved to {args.output}")
+    print(f"BM25 index saved to {args.output_file}")
 
 
 if __name__ == "__main__":
-    build_bm25_index()
+    main()

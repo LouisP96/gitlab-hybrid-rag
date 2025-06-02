@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Metadata Augmentation Script for GitLab RAG
 
@@ -11,21 +11,6 @@ import argparse
 import logging
 from pathlib import Path
 from typing import Dict, Any
-
-
-def setup_logging(log_level: str = "INFO") -> logging.Logger:
-    """Set up logging configuration."""
-    numeric_level = getattr(logging, log_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {log_level}")
-
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    return logging.getLogger("augment_chunks")
 
 
 def augment_chunk_with_metadata(chunk_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -95,10 +80,10 @@ def process_chunks(input_dir: Path, output_dir: Path, by_project: bool = True):
     # Get list of projects if processing by project
     if by_project:
         projects = [d for d in input_dir.iterdir() if d.is_dir()]
-        logger.info(f"Found {len(projects)} projects to process")
+        logging.info(f"Found {len(projects)} projects to process")
     else:
         projects = [input_dir]
-        logger.info(f"Processing all chunks in {input_dir}")
+        logging.info(f"Processing all chunks in {input_dir}")
 
     # Process each project
     total_processed = 0
@@ -116,7 +101,7 @@ def process_chunks(input_dir: Path, output_dir: Path, by_project: bool = True):
 
         # Get all JSON files in this project
         json_files = list(project_dir.glob("*.json"))
-        logger.info(f"Processing {len(json_files)} chunks from {project_name}")
+        logging.info(f"Processing {len(json_files)} chunks from {project_name}")
 
         project_processed = 0
         project_errors = 0
@@ -144,24 +129,24 @@ def process_chunks(input_dir: Path, output_dir: Path, by_project: bool = True):
                     project_processed += 1
 
                 except Exception as e:
-                    logger.error(f"Error processing {json_file}: {str(e)}")
+                    logging.error(f"Error processing {json_file}: {str(e)}")
                     project_errors += 1
 
             # Log progress after each batch
-            logger.info(
+            logging.info(
                 f"Project {project_name}: Processed {project_processed}/{len(json_files)} chunks"
             )
 
-        logger.info(
+        logging.info(
             f"Completed project {project_name}: {project_processed} processed, {project_errors} errors"
         )
         total_processed += project_processed
         total_errors += project_errors
 
-    logger.info(
+    logging.info(
         f"Augmentation complete. Processed {total_processed} chunks with {total_errors} errors."
     )
-    logger.info(f"Results saved to {output_dir}")
+    logging.info(f"Results saved to {output_dir}")
 
 
 def main():
@@ -198,8 +183,11 @@ def main():
     args = parser.parse_args()
 
     # Set up logging
-    global logger
-    logger = setup_logging(args.log_level)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
     # Convert paths to Path objects
     input_dir = Path(args.input_dir)
