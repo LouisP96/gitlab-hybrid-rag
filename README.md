@@ -2,6 +2,8 @@
 
 A comprehensive Retrieval-Augmented Generation (RAG) system for GitLab codebases that enables intelligent querying of code, documentation, issues, merge requests, and project metadata using advanced hybrid search with query rewriting.
 
+![Demo GIF](./demo/demo.gif)
+
 ## Features
 
 ### **Document Processing & Chunking**
