@@ -1,36 +1,36 @@
 from src.retrieval.query_embeddings import RAGRetriever, Reranker, HybridRetriever
 import anthropic
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 
 
 class QueryRewriter:
     """
     Uses Claude to intelligently rewrite queries based on conversation context.
     """
-    
+
     def __init__(self, client):
         self.client = client
-    
+
     def rewrite_query(self, query: str, conversation_history: List[Dict]) -> str:
         """
         Use Claude to rewrite the query with appropriate context.
-        
+
         Args:
             query: Original user query
             conversation_history: Previous conversation
-            
+
         Returns:
             Rewritten query optimized for retrieval
         """
         if not conversation_history:
             return query
-            
+
         # Build context from recent conversation
         context = ""
         for entry in conversation_history[-2:]:
             context += f"User: {entry['query']}\nAssistant: {entry['answer']}\n\n"
-        
+
         rewrite_prompt = f"""Given this conversation context and the user's new query, rewrite the query to be optimal for code/documentation search.
 
         CONVERSATION CONTEXT:
@@ -51,13 +51,13 @@ class QueryRewriter:
                 model="claude-sonnet-4-20250514",
                 max_tokens=100,
                 temperature=0.1,
-                messages=[{"role": "user", "content": rewrite_prompt}]
+                messages=[{"role": "user", "content": rewrite_prompt}],
             )
-            
+
             rewritten = response.content[0].text.strip()
             print(f"Query rewritten from '{query}' to '{rewritten}'")
             return rewritten
-            
+
         except Exception as e:
             print(f"Query rewriting failed: {e}, using original query")
             return query
@@ -113,7 +113,7 @@ class GitLabRAG:
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.filtered_words = filtered_words or []
-        
+
         # Initialize query rewriter
         self.query_rewriter = QueryRewriter(self.client)
 
@@ -133,15 +133,17 @@ class GitLabRAG:
     def ask(self, query, conversation_history=None, top_k=10):
         """
         Ask a question about the codebase with intelligent query rewriting.
-        
+
         Args:
             query: The current question to ask
             conversation_history: Previous conversation for context
             top_k: Number of chunks to retrieve
         """
         # Use Claude to rewrite the query if needed
-        retrieval_query = self.query_rewriter.rewrite_query(query, conversation_history or [])
-        
+        retrieval_query = self.query_rewriter.rewrite_query(
+            query, conversation_history or []
+        )
+
         # Retrieve chunks using the (possibly rewritten) query
         chunks = self.retriever.search(retrieval_query, top_k=top_k)
 
@@ -156,11 +158,15 @@ class GitLabRAG:
         if conversation_history:
             conversation_context = "CONVERSATION HISTORY:\n"
             for msg in conversation_history[-2:]:
-                conversation_context += f"User: {msg['query']}\nAssistant: {msg['answer']}\n\n"
+                conversation_context += (
+                    f"User: {msg['query']}\nAssistant: {msg['answer']}\n\n"
+                )
             conversation_context += "---\n\n"
 
         # Format prompt for Claude
-        prompt = f"{conversation_context}{context}\nCURRENT QUESTION: {query}\n\nANSWER:"
+        prompt = (
+            f"{conversation_context}{context}\nCURRENT QUESTION: {query}\n\nANSWER:"
+        )
 
         # Create system prompt
         system_prompt = """You are a specialised assistant for a GitLab codebase.

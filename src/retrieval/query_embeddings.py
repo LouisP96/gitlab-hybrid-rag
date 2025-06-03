@@ -185,27 +185,33 @@ class Reranker:
         texts = [doc[content_key] for doc in documents]
 
         # DEBUG: Print query and chunk info
-        print(f"\n=== RERANKER DEBUG ===")
+        print("\n=== RERANKER DEBUG ===")
         print(f"Query length: {len(query)} chars")
         print(f"Query (first 100 chars): {query[:100]}...")
         print(f"Number of chunks to rerank: {len(texts)}")
-        
+
         for i, text in enumerate(texts):
-            print(f"Chunk {i+1}: {len(text)} chars, first 50 chars: {text[:50].replace(chr(10), ' ')}...")
+            print(
+                f"Chunk {i + 1}: {len(text)} chars, first 50 chars: {text[:50].replace(chr(10), ' ')}..."
+            )
 
         scores = []
 
         with torch.no_grad():
             for i in range(0, len(texts), self.batch_size):
                 batch_texts = texts[i : i + self.batch_size]
-                
-                print(f"\nProcessing batch starting at index {i}, batch size: {len(batch_texts)}")
+
+                print(
+                    f"\nProcessing batch starting at index {i}, batch size: {len(batch_texts)}"
+                )
 
                 # DEBUG: Check tokenization before model call
                 for j, text in enumerate(batch_texts):
                     combined_text = f"{query} {text}"
-                    tokens = self.tokenizer.encode(combined_text, add_special_tokens=True)
-                    print(f"  Pair {i+j+1}: Combined length = {len(tokens)} tokens")
+                    tokens = self.tokenizer.encode(
+                        combined_text, add_special_tokens=True
+                    )
+                    print(f"  Pair {i + j + 1}: Combined length = {len(tokens)} tokens")
 
                 # Tokenize query and documents
                 features = self.tokenizer(
@@ -221,7 +227,7 @@ class Reranker:
                 batch_scores = self.model(**features).logits.squeeze(-1).cpu().numpy()
                 scores.extend(batch_scores.tolist())
 
-        print(f"=== END RERANKER DEBUG ===\n")
+        print("=== END RERANKER DEBUG ===\n")
 
         # Create a copy of the documents list to avoid modifying the original
         reranked_docs = documents.copy()
@@ -565,9 +571,9 @@ class HybridRetriever:
 
         # 1. Get semantic search results (just rankings, not full document data)
         semantic_results = self.vector_retriever.search(
-            query=query, 
-            top_k=self.retrieval_k, 
-            metadata_fields=None  # Don't load metadata yet
+            query=query,
+            top_k=self.retrieval_k,
+            metadata_fields=None,  # Don't load metadata yet
         )
 
         # 2. Get BM25 search results
@@ -591,31 +597,31 @@ class HybridRetriever:
 
         # 5. Load document data uniformly for all results
         fusion_results = []
-        
+
         # Take top candidates for reranking
         rerank_count = min(len(combined_rankings), self.rerank_candidates)
         top_chunk_ids = [chunk_id for chunk_id, _ in combined_rankings[:rerank_count]]
-        
+
         # Load all documents at once
         loaded_docs = self._load_documents_by_chunk_ids(top_chunk_ids, metadata_fields)
-        
+
         # Build results with fusion scores and retrieval method info
         for chunk_id, fusion_score in combined_rankings[:rerank_count]:
             if chunk_id in loaded_docs:
                 doc = loaded_docs[chunk_id].copy()
                 doc["fusion_score"] = fusion_score
-                
+
                 # Determine retrieval method
                 was_in_semantic = chunk_id in [r[0] for r in semantic_rankings]
                 was_in_bm25 = chunk_id in [r[0] for r in bm25_rankings]
-                
+
                 if was_in_semantic and was_in_bm25:
                     doc["retrieval_method"] = "hybrid"
                 elif was_in_semantic:
                     doc["retrieval_method"] = "semantic_only"
                 else:
                     doc["retrieval_method"] = "bm25_only"
-                    
+
                 fusion_results.append(doc)
 
         print(f"Prepared {len(fusion_results)} documents for reranking")
@@ -627,29 +633,34 @@ class HybridRetriever:
         # 7. Return final top_k results
         return reranked_results[:top_k]
 
-
     def _load_documents_by_chunk_ids(
         self, chunk_ids: List[str], metadata_fields: Optional[List[str]] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
         Load multiple documents by chunk IDs efficiently.
-        
+
         Args:
             chunk_ids: List of chunk IDs to load
             metadata_fields: Metadata fields to include
-            
+
         Returns:
             Dictionary mapping chunk_id to document data
         """
         if metadata_fields is None:
             metadata_fields = [
-                "path", "type", "language", "filename", "chunk_type", 
-                "parent_id", "author", "issue_id"
+                "path",
+                "type",
+                "language",
+                "filename",
+                "chunk_type",
+                "parent_id",
+                "author",
+                "issue_id",
             ]
-        
+
         loaded_docs = {}
         chunks_dir = Path(self.vector_retriever.chunks_dir)
-        
+
         # Group chunk IDs by project for more efficient loading
         chunks_by_project = {}
         for chunk_id in chunk_ids:
@@ -658,14 +669,14 @@ class HybridRetriever:
                 if project not in chunks_by_project:
                     chunks_by_project[project] = []
                 chunks_by_project[project].append(chunk_id)
-        
+
         # Load documents project by project
         for project, project_chunk_ids in chunks_by_project.items():
             project_dir = chunks_dir / project
-            
+
             for chunk_id in project_chunk_ids:
                 file_path = project_dir / f"{chunk_id}.json"
-                
+
                 if file_path.exists():
                     try:
                         with open(file_path, "r", encoding="utf-8") as f:
@@ -675,7 +686,9 @@ class HybridRetriever:
                             "chunk_id": chunk_id,
                             "score": 0.0,  # Will be set by fusion/reranker
                             "project": project,
-                            "augmented_content": chunk_data.get("augmented_content", ""),
+                            "augmented_content": chunk_data.get(
+                                "augmented_content", ""
+                            ),
                         }
 
                         # Add metadata fields consistently
@@ -685,8 +698,8 @@ class HybridRetriever:
                                 result[field] = metadata[field]
 
                         loaded_docs[chunk_id] = result
-                        
+
                     except Exception as e:
                         print(f"Error loading document {chunk_id}: {e}")
-        
+
         return loaded_docs

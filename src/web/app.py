@@ -119,7 +119,9 @@ def create_app(
 
             # Get response from RAG system - pass history separately
             logger.info("Sending query to RAG system...")
-            response = rag.ask(query, conversation_history=conversation_history, top_k=10)
+            response = rag.ask(
+                query, conversation_history=conversation_history, top_k=10
+            )
             logger.info("Received response from RAG system")
 
             # Add CORS headers
@@ -127,8 +129,8 @@ def create_app(
                 {
                     "answer": response["answer"],
                     "sources": response.get("sources", []),
-                    "hybrid_search_enabled": True,  
-                    "query_rewriter_enabled": True, 
+                    "hybrid_search_enabled": True,
+                    "query_rewriter_enabled": True,
                 }
             )
             return resp
@@ -163,7 +165,7 @@ def create_app(
                         "retrieval_k": retrieval_k,
                         "rerank_candidates": rerank_candidates,
                         "reranker_model": reranker_model,
-                        "query_rewriter": True, 
+                        "query_rewriter": True,
                     }
                 except Exception as e:
                     hybrid_status = f"error: {str(e)}"

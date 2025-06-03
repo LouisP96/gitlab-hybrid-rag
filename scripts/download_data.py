@@ -7,6 +7,7 @@ import json
 import argparse
 import logging
 
+
 def get_all_pages(url, params=None, headers=None, access_token=None):
     """Helper function to get all pages of a paginated API response"""
     if params is None:
@@ -80,7 +81,7 @@ def main():
     args = parser.parse_args()
 
     # Configuration from arguments
-    gitlab_url = args.gitlab_url.rstrip('/')
+    gitlab_url = args.gitlab_url.rstrip("/")
     access_token = args.access_token
     output_directory = args.output_directory
 
@@ -141,12 +142,18 @@ def main():
             while True:
                 response = requests.get(
                     f"{gitlab_url}/api/v4/projects",
-                    params={"page": page, "per_page": per_page, "visibility": visibility},
+                    params={
+                        "page": page,
+                        "per_page": per_page,
+                        "visibility": visibility,
+                    },
                     headers={"PRIVATE-TOKEN": access_token},
                 )
 
                 if response.status_code != 200:
-                    logger.error(f"Error for {visibility} projects: {response.status_code}")
+                    logger.error(
+                        f"Error for {visibility} projects: {response.status_code}"
+                    )
                     logger.error(response.text)
                     break
 
@@ -186,11 +193,15 @@ def main():
             )
 
             # Get project size in MB
-            size_mb = project.get("statistics", {}).get("repository_size", 0) / 1024 / 1024
+            size_mb = (
+                project.get("statistics", {}).get("repository_size", 0) / 1024 / 1024
+            )
             logger.info(f"Repository size: {size_mb:.2f} MB")
 
             if os.path.exists(project_dir):
-                logger.info(f"Directory {project_dir} already exists, skipping clone...")
+                logger.info(
+                    f"Directory {project_dir} already exists, skipping clone..."
+                )
                 skipped_clones += 1
             else:
                 os.makedirs(project_dir, exist_ok=True)
@@ -200,7 +211,9 @@ def main():
 
                 try:
                     start_time = time.time()
-                    subprocess.run(["git", "clone", project_url, project_dir], check=True)
+                    subprocess.run(
+                        ["git", "clone", project_url, project_dir], check=True
+                    )
                     elapsed_time = time.time() - start_time
                     logger.info(
                         f"Successfully cloned {project['name']} in {elapsed_time:.1f} seconds"
@@ -240,9 +253,9 @@ def main():
         # 1. Get issues
         logger.info(f"Downloading issues for {project['name']}...")
         issues = get_all_pages(
-            f"{gitlab_url}/api/v4/projects/{project_id}/issues", 
+            f"{gitlab_url}/api/v4/projects/{project_id}/issues",
             params={"state": "all"},
-            access_token=access_token
+            access_token=access_token,
         )
 
         with open(os.path.join(metadata_dir, "issues.json"), "w") as f:
@@ -254,12 +267,13 @@ def main():
             issue_iid = issue["iid"]
             discussions = get_all_pages(
                 f"{gitlab_url}/api/v4/projects/{project_id}/issues/{issue_iid}/discussions",
-                access_token=access_token
+                access_token=access_token,
             )
 
             if discussions:
                 with open(
-                    os.path.join(metadata_dir, f"issue_{issue_iid}_discussions.json"), "w"
+                    os.path.join(metadata_dir, f"issue_{issue_iid}_discussions.json"),
+                    "w",
                 ) as f:
                     json.dump(discussions, f, indent=2)
 
@@ -268,7 +282,7 @@ def main():
         merge_requests = get_all_pages(
             f"{gitlab_url}/api/v4/projects/{project_id}/merge_requests",
             params={"state": "all"},
-            access_token=access_token
+            access_token=access_token,
         )
 
         with open(os.path.join(metadata_dir, "merge_requests.json"), "w") as f:
@@ -282,7 +296,7 @@ def main():
             mr_iid = mr["iid"]
             discussions = get_all_pages(
                 f"{gitlab_url}/api/v4/projects/{project_id}/merge_requests/{mr_iid}/discussions",
-                access_token=access_token
+                access_token=access_token,
             )
 
             if discussions:
@@ -385,7 +399,7 @@ def main():
         logger.info(f"Downloading milestones for {project['name']}...")
         milestones = get_all_pages(
             f"{gitlab_url}/api/v4/projects/{project_id}/milestones",
-            access_token=access_token
+            access_token=access_token,
         )
 
         with open(os.path.join(metadata_dir, "milestones.json"), "w") as f:
@@ -396,7 +410,7 @@ def main():
         logger.info(f"Downloading releases for {project['name']}...")
         releases = get_all_pages(
             f"{gitlab_url}/api/v4/projects/{project_id}/releases",
-            access_token=access_token
+            access_token=access_token,
         )
 
         with open(os.path.join(metadata_dir, "releases.json"), "w") as f:
@@ -407,7 +421,7 @@ def main():
         logger.info(f"Downloading CI/CD pipelines for {project['name']}...")
         pipelines = get_all_pages(
             f"{gitlab_url}/api/v4/projects/{project_id}/pipelines",
-            access_token=access_token
+            access_token=access_token,
         )
 
         with open(os.path.join(metadata_dir, "pipelines.json"), "w") as f:
@@ -430,7 +444,7 @@ def main():
             # Get pipeline jobs
             jobs = get_all_pages(
                 f"{gitlab_url}/api/v4/projects/{project_id}/pipelines/{pipeline_id}/jobs",
-                access_token=access_token
+                access_token=access_token,
             )
 
             if jobs:
