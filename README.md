@@ -54,10 +54,10 @@ pip install -e .
 ### 1. Download GitLab Data
 ```bash
 python scripts/download_data.py \
-    --gitlab_url https://your-gitlab.com \
-    --access_token YOUR_TOKEN \
-    --output_directory data/gitlab_data \
-    --clone_repo
+    --gitlab-url https://your-gitlab.com \
+    --access-token YOUR_TOKEN \
+    --output-dir data/gitlab_data \
+    --clone-repo
 ```
 
 ### 2. Process the Data
