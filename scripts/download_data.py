@@ -83,16 +83,16 @@ def main():
     # Configuration from arguments
     gitlab_url = args.gitlab_url.rstrip("/")
     access_token = args.access_token
-    output_directory = args.output_directory
+    output_dir = args.output_dir
 
     # Create output directory if it doesn't exist
-    os.makedirs(output_directory, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(os.path.join(output_directory, "download_log.txt")),
+            logging.FileHandler(os.path.join(output_dir, "download_log.txt")),
             logging.StreamHandler(),
         ],
     )
@@ -168,7 +168,7 @@ def main():
     logger.info(f"Found {len(all_projects)} projects")
 
     # Save all projects metadata
-    with open(os.path.join(output_directory, "all_projects.json"), "w") as f:
+    with open(os.path.join(output_dir, "all_projects.json"), "w") as f:
         json.dump(all_projects, f, indent=2)
 
     # Process each project
@@ -176,7 +176,7 @@ def main():
     for project_index, project in enumerate(all_projects, 1):
         project_id = project["id"]
         project_name = project["path_with_namespace"].replace("/", "_")
-        metadata_dir = os.path.join(output_directory, f"{project_name}_metadata")
+        metadata_dir = os.path.join(output_dir, f"{project_name}_metadata")
 
         logger.info(
             f"Processing project: {project['name']} (ID: {project_id}) - {project_index}/{total_projects} ({(project_index / total_projects) * 100:.1f}%)"
@@ -187,7 +187,7 @@ def main():
 
         # Handle repository cloning if requested
         if args.clone_repo:
-            project_dir = os.path.join(output_directory, project_name)
+            project_dir = os.path.join(output_dir, project_name)
             logger.info(
                 f"[{project_index}/{total_projects}] {(project_index / total_projects) * 100:.1f}% - Cloning {project['name']}..."
             )
@@ -225,7 +225,7 @@ def main():
 
                     # Write failed clones to a file for later retry
                     with open(
-                        os.path.join(output_directory, "failed_clones.txt"), "a"
+                        os.path.join(output_dir, "failed_clones.txt"), "a"
                     ) as f:
                         f.write(f"{project['id']},{project_name},{project_url}\n")
 
