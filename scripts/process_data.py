@@ -20,11 +20,11 @@ def parse_arguments():
         description="Process GitLab backup data for RAG system"
     )
     parser.add_argument(
-        "--input-dir", required=True, help="Path to GitLab data directory"
+        "--input-dir", default="data/gitlab_data", help="Path to GitLab data directory"
     )
     parser.add_argument(
         "--output-dir",
-        required=True,
+        default="data/processed_data",
         help="Path to output directory for processed documents",
     )
     parser.add_argument(

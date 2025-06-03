@@ -51,22 +51,22 @@ def main():
     # Add argument parsing
     parser = argparse.ArgumentParser(description="Download GitLab data and metadata")
     parser.add_argument(
-        "--gitlab_url",
+        "--gitlab-url",
         type=str,
         required=True,
         help="GitLab instance URL (e.g., https://gitlab.example.com)",
     )
     parser.add_argument(
-        "--access_token",
+        "--access-token",
         type=str,
         required=True,
         help="GitLab access token for API authentication",
     )
     parser.add_argument(
-        "--output_directory",
+        "--output-dir",
         type=str,
-        default="gitlab_data",
-        help="Output directory for downloaded data (default: gitlab_data)",
+        default="data/gitlab_data",
+        help="Output directory for downloaded data (default: data/gitlab_data)",
     )
     parser.add_argument(
         "--project",
@@ -74,7 +74,7 @@ def main():
         help="Specific project path with namespace to download (e.g., group/project)",
     )
     parser.add_argument(
-        "--clone_repo",
+        "--clone-repo",
         action="store_true",
         help="Clone the repository as well (default: skip cloning)",
     )

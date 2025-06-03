@@ -27,13 +27,13 @@ def main():
     parser.add_argument(
         "--input-dir",
         type=str,
-        required=True,
+        default="data/enriched_output",
         help="Directory containing augmented chunks",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        required=True,
+        default="data/emebddings_output",
         help="Directory to save embeddings and indexes",
     )
 

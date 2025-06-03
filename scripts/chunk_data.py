@@ -160,11 +160,14 @@ def main():
     parser.add_argument(
         "--input-dir",
         type=str,
-        required=True,
+        default="data/processed_data",
         help="Directory containing processed documents",
     )
     parser.add_argument(
-        "--output-dir", type=str, required=True, help="Directory to save chunks to"
+        "--output-dir",
+        type=str,
+        default="data/chunked_output",
+        help="Directory to save chunks to",
     )
     parser.add_argument("--project", type=str, help="Process only a specific project")
 

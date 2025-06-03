@@ -158,13 +158,13 @@ def main():
     parser.add_argument(
         "--input-dir",
         type=str,
-        required=True,
+        default="data/chunked_output",
         help="Directory containing chunked documents",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        required=True,
+        default="data/enriched_output",
         help="Directory to save augmented chunks to",
     )
     parser.add_argument(
