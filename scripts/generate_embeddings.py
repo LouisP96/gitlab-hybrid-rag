@@ -33,7 +33,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/emebddings_output",
+        default="data/embeddings_output",
         help="Directory to save embeddings and indexes",
     )
 
