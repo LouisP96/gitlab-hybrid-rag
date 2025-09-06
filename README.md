@@ -50,7 +50,7 @@ pip install -e .
 
 ## Usage Guide
 
-### Run the Complete Data Pipeline
+### Create embeddings and BM25 Index
 
 You can edit and run the complete pipeline script to generate the embeddings and BM25 index:
 
@@ -58,9 +58,7 @@ You can edit and run the complete pipeline script to generate the embeddings and
 ./run_data_pipeline.sh
 ```
 
-This script runs all data processing steps in sequence with default configurations. Edit the script to customize parameters for your specific GitLab instance and requirements.
-
-### Or Run Scripts Separately
+This script runs all data processing steps in sequence with default configurations. Edit the script to customize parameters for your specific GitLab instance and requirements. Alternatively, you can run each data processing script separately, as below.
 
 #### 1. Download GitLab Data
 ```bash
