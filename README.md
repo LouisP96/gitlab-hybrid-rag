@@ -50,7 +50,7 @@ pip install -e .
 
 ## Usage Guide
 
-### Create embeddings and BM25 Index
+### Create Embeddings and BM25 Index
 
 You can edit and run the complete pipeline script to generate the embeddings and BM25 index:
 
