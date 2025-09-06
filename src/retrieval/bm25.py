@@ -1,7 +1,6 @@
 import re
 import pickle
 import nltk
-from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from rank_bm25 import BM25Okapi
 from nltk.tokenize import word_tokenize

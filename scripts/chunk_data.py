@@ -13,10 +13,11 @@ from typing import List
 from src.processing.document import Document
 from src.indexing.chunking import chunk_documents
 
+
 def load_documents(input_dir: Path) -> List[Document]:
     """Load processed documents from the input directory."""
     documents = []
-    
+
     # Get list of projects
     projects = [d.name for d in input_dir.iterdir() if d.is_dir()]
 
@@ -24,15 +25,17 @@ def load_documents(input_dir: Path) -> List[Document]:
 
     for project in projects:
         project_dir = input_dir / project
-        
+
         # Load from known processor directories
-        for processor_type in ['code', 'documentation', 'metadata']:
+        for processor_type in ["code", "documentation", "metadata"]:
             processor_dir = project_dir / processor_type
             if not processor_dir.exists():
                 continue
-                
+
             json_files = list(processor_dir.glob("*.json"))
-            logging.info(f"Loading {len(json_files)} {processor_type} documents from {project}")
+            logging.info(
+                f"Loading {len(json_files)} {processor_type} documents from {project}"
+            )
 
             for json_file in json_files:
                 try:
@@ -55,7 +58,7 @@ def load_documents(input_dir: Path) -> List[Document]:
 def save_chunks(chunks, output_dir: Path):
     """Save chunks organized by project."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Group chunks by project
     chunks_by_project = {}
     for chunk in chunks:
@@ -68,17 +71,22 @@ def save_chunks(chunks, output_dir: Path):
     for project, project_chunks in chunks_by_project.items():
         project_dir = output_dir / project
         project_dir.mkdir(exist_ok=True)
-        
+
         logging.info(f"Saving {len(project_chunks)} chunks for {project}")
-        
+
         for chunk in project_chunks:
             chunk_file = project_dir / f"{chunk.chunk_id}.json"
             with open(chunk_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "content": chunk.content,
-                    "metadata": chunk.metadata,
-                    "chunk_id": chunk.chunk_id,
-                }, f, ensure_ascii=False, indent=2)
+                json.dump(
+                    {
+                        "content": chunk.content,
+                        "metadata": chunk.metadata,
+                        "chunk_id": chunk.chunk_id,
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
 
 def main():
@@ -130,7 +138,9 @@ def main():
         return
 
     # Chunk documents
-    logging.info(f"Chunking {len(documents)} documents (max_chunk_size={args.max_chunk_size})")
+    logging.info(
+        f"Chunking {len(documents)} documents (max_chunk_size={args.max_chunk_size})"
+    )
     chunks = chunk_documents(
         documents,
         chunk_overlap=args.chunk_overlap,

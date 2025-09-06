@@ -16,6 +16,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
 
+
 def optimise_model(model):
     """Apply optimisations to the model."""
     transformer_model = model._first_module().auto_model
@@ -29,10 +30,10 @@ def load_chunk_data(json_files, project_name):
     for json_file in json_files:
         with open(json_file, "r", encoding="utf-8") as f:
             chunk_data = json.load(f)
-        
+
         chunk_id = chunk_data.get("chunk_id", json_file.stem)
         content = chunk_data.get("content", "")
-        
+
         if content:
             yield chunk_id, content, project_name
 
@@ -75,12 +76,11 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s"
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
     )
-    
+
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -115,17 +115,17 @@ def main():
     # Process all chunks
     batch_texts = []
     batch_ids = []
-    
+
     for project_dir in all_projects:
         project_name = project_dir.name
         json_files = list(project_dir.glob("*.json"))
         logging.info(f"Processing {len(json_files)} chunks from {project_name}")
-        
+
         for chunk_id, content, project in load_chunk_data(json_files, project_name):
             batch_texts.append(content)
             batch_ids.append(chunk_id)
             chunk_to_project[chunk_id] = project
-            
+
             # Process batch when full
             if len(batch_texts) >= args.batch_size:
                 with torch.no_grad():
@@ -133,17 +133,17 @@ def main():
                         batch_texts,
                         batch_size=args.batch_size,
                         show_progress_bar=False,
-                        normalize_embeddings=True
+                        normalize_embeddings=True,
                     )
-                
+
                 index.add(embeddings.astype(np.float32))
                 all_chunk_ids.extend(batch_ids)
                 processed_chunks += len(batch_ids)
-                
+
                 # Reset batch
                 batch_texts = []
                 batch_ids = []
-    
+
     # Process remaining batch
     if batch_texts:
         with torch.no_grad():
@@ -151,9 +151,9 @@ def main():
                 batch_texts,
                 batch_size=args.batch_size,
                 show_progress_bar=False,
-                normalize_embeddings=True
+                normalize_embeddings=True,
             )
-        
+
         index.add(embeddings.astype(np.float32))
         all_chunk_ids.extend(batch_ids)
         processed_chunks += len(batch_ids)
@@ -165,7 +165,9 @@ def main():
 
     # Summary
     duration = datetime.now() - start_time
-    logging.info(f"Completed in {duration}. Processed {processed_chunks}/{total_chunks} chunks")
+    logging.info(
+        f"Completed in {duration}. Processed {processed_chunks}/{total_chunks} chunks"
+    )
 
 
 if __name__ == "__main__":

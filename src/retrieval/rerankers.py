@@ -4,7 +4,9 @@ from typing import List, Dict, Any
 
 
 class Reranker:
-    def __init__(self, model_name="BAAI/bge-reranker-v2-m3", batch_size=8, max_results=10):
+    def __init__(
+        self, model_name="BAAI/bge-reranker-v2-m3", batch_size=8, max_results=10
+    ):
         """
         initialise the reranker.
 
@@ -47,7 +49,9 @@ class Reranker:
 
         # Check if we have fewer documents than max_results
         if len(documents) < self.max_results:
-            print(f"Warning: Reranker configured for max_results={self.max_results} but only {len(documents)} documents provided")
+            print(
+                f"Warning: Reranker configured for max_results={self.max_results} but only {len(documents)} documents provided"
+            )
 
         # Extract document texts
         texts = [doc[content_key] for doc in documents]
@@ -108,4 +112,4 @@ class Reranker:
         reranked_docs.sort(key=lambda x: x["score"], reverse=True)
 
         # Return top_k results
-        return reranked_docs[:self.max_results]
+        return reranked_docs[: self.max_results]

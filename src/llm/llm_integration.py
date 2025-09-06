@@ -73,7 +73,7 @@ class GitLabRAG:
     ):
         """
         initialise the GitLab RAG system.
-        
+
         Args:
             retriever: Retriever instance (RAGRetriever or HybridRetriever)
             reranker: Optional Reranker instance for reranking results
@@ -123,7 +123,7 @@ class GitLabRAG:
 
         # Retrieve chunks using the (possibly rewritten) query
         chunks = self.retriever.search(retrieval_query, retrieval_top_k=retrieval_top_k)
-        
+
         # Apply reranking if enabled (reranker controls how many to return)
         if self.reranker:
             chunks = self.reranker.rerank(retrieval_query, chunks)
@@ -186,7 +186,7 @@ class GitLabRAG:
                 "score": chunk["score"],
                 "retrieval_method": chunk.get("retrieval_method", "unknown"),
             }
-            
+
             # Add all other fields from the chunk
             for key, value in chunk.items():
                 if key not in source_info:  # Don't overwrite basic info

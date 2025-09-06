@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 import json
 import faiss
@@ -86,7 +85,7 @@ class RAGRetriever:
                     # Add all metadata fields if they exist
                     metadata = chunk_data.get("metadata", {})
                     result.update(metadata)
-                    
+
                     # Set retrieval method for semantic-only search
                     result["retrieval_method"] = "semantic"
 
@@ -95,7 +94,9 @@ class RAGRetriever:
 
         # Check if we have fewer results than requested
         if len(results) < retrieval_top_k:
-            print(f"Warning: RAGRetriever requested {retrieval_top_k} results but only {len(results)} results found")
+            print(
+                f"Warning: RAGRetriever requested {retrieval_top_k} results but only {len(results)} results found"
+            )
 
         # Return retrieval_top_k results
         return results[:retrieval_top_k]
@@ -145,7 +146,7 @@ class HybridRetriever(RAGRetriever):
             chunks_dir=chunks_dir,
             model_name=model_name,
         )
-        
+
         # Hybrid-specific parameters
         self.semantic_weight = semantic_weight
         self.per_system_k = per_system_k
@@ -160,9 +161,7 @@ class HybridRetriever(RAGRetriever):
         else:
             raise FileNotFoundError(f"BM25 index not found at {bm25_index_path}. ")
 
-    def search(
-        self, query: str, retrieval_top_k: int = 10
-    ) -> List[Dict[str, Any]]:
+    def search(self, query: str, retrieval_top_k: int = 10) -> List[Dict[str, Any]]:
         """
         Search using hybrid approach: Vector + BM25 + RRF.
 
@@ -202,7 +201,9 @@ class HybridRetriever(RAGRetriever):
 
         # Check if we have fewer results than requested
         if len(combined_rankings) < retrieval_top_k:
-            print(f"Warning: HybridRetriever requested {retrieval_top_k} results but only {len(combined_rankings)} unique results available after fusion")
+            print(
+                f"Warning: HybridRetriever requested {retrieval_top_k} results but only {len(combined_rankings)} unique results available after fusion"
+            )
 
         # 5. Load documents inline and build results
 
@@ -211,7 +212,7 @@ class HybridRetriever(RAGRetriever):
             project = self.chunk_to_project.get(chunk_id, "unknown")
             if project == "unknown":
                 continue
-                
+
             # Load document from file
             file_path = self.chunks_dir / project / f"{chunk_id}.json"
             if file_path.exists():
@@ -243,7 +244,7 @@ class HybridRetriever(RAGRetriever):
                         result["retrieval_method"] = "bm25_only"
 
                     results.append(result)
-                    
+
                 except Exception as e:
                     print(f"Error loading document {chunk_id}: {e}")
 
