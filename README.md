@@ -52,7 +52,7 @@ pip install -e .
 
 ### Run the Complete Data Pipeline
 
-You can edit and run the complete pipeline script:
+You can edit and run the complete pipeline script to generate the embeddings and BM25 index:
 
 ```bash
 ./run_data_pipeline.sh
@@ -108,7 +108,7 @@ python scripts/build_bm25_index.py \
     --output-file data/embeddings_output/bm25_index.pkl
 ```
 
-### 6. Start the Web Interface
+### Start the Web Interface
 ```bash
 export ANTHROPIC_API_KEY=your_api_key_here
 
