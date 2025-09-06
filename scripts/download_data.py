@@ -441,11 +441,6 @@ class GitLabDownloader:
                 metadata_dir
             )
     
-    def save_projects_metadata(self, projects: List[Dict]):
-        """Save all projects metadata to file"""
-        filepath = os.path.join(self.config.output_dir, "all_projects.json")
-        with open(filepath, "w") as f:
-            json.dump(projects, f, indent=2)
     
     def download_all(self, specific_project: Optional[str] = None):
         """Main method to download all project data"""
@@ -456,9 +451,6 @@ class GitLabDownloader:
             return
         
         self.logger.info(f"Found {len(projects)} projects")
-        
-        # Save projects metadata
-        self.save_projects_metadata(projects)
         
         # Process each project
         for project_index, project in enumerate(projects, 1):
@@ -497,8 +489,8 @@ def main():
     parser.add_argument(
         "--pipeline-limit",
         type=int,
-        default=3,
-        help="Number of most recent pipelines to download detailed data for (default: 3)",
+        default=1,
+        help="Number of most recent pipelines to download detailed data for",
     )
     args = parser.parse_args()
 

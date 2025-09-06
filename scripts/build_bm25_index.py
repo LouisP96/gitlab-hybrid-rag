@@ -10,7 +10,7 @@ import nltk
 import argparse
 from pathlib import Path
 
-from src.retrieval.query_embeddings import BM25Index
+from src.retrieval.bm25 import BM25Index
 
 
 def main():
@@ -42,7 +42,7 @@ def main():
     except LookupError:
         nltk.download("stopwords")
 
-    # Initialize BM25 index
+    # initialise BM25 index
     bm25_index = BM25Index(k1=args.k1, b=args.b)
 
     # Load documents

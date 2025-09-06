@@ -249,39 +249,6 @@
             padding: 0;
         }
         
-        #debug-panel {
-            margin-bottom: 20px;
-            font-size: 12px;
-            color: #656d76;
-            background: white;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        
-        #debug-panel details {
-            padding: 12px 16px;
-        }
-        
-        #debug-panel summary {
-            cursor: pointer;
-            font-weight: 500;
-            color: #24292f;
-        }
-        
-        #debug-panel summary:hover {
-            color: #0969da;
-        }
-        
-        #test-result {
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: #f6f8fa;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
-            font-size: 11px;
-            font-family: ui-monospace, monospace;
-        }
         
         .source-toggle {
             cursor: pointer;
@@ -432,23 +399,6 @@
             font-weight: 600;
         }
         
-        /* Debug panel buttons */
-        #debug-panel button {
-            background: #f6f8fa;
-            border: 1px solid #d0d7de;
-            color: #24292f;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-right: 8px;
-            margin-top: 8px;
-        }
-        
-        #debug-panel button:hover {
-            background: #f1f3f4;
-            border-color: #afb8c1;
-        }
         
         /* Status indicator retry button */
         #status-indicator button {
@@ -473,21 +423,6 @@
             GitLab Code Assistant
         </div>
         
-        <!-- Debug Panel -->
-        <div id="debug-panel">
-            <details>
-                <summary>Debug Info (click to expand)</summary>
-                <p>Page URL: <span id="debug-page-url"></span></p>
-                <p>API Base URL: <span id="debug-api-url"></span></p>
-                <p>Hybrid Search: <span id="debug-hybrid">Unknown</span></p>
-                <p>Last API Response: <span id="debug-last-response">None</span></p>
-                <div>
-                    <button id="test-debug-btn">Test Debug API</button>
-                    <button id="test-ask-btn">Test Ask API</button>
-                    <div id="test-result"></div>
-                </div>
-            </details>
-        </div>
         
         <div id="status-indicator"></div>
         
@@ -535,13 +470,9 @@
             return window.location.origin + pathPrefix;
         }
         
-        // Initialize API base URL
+        // initialise API base URL
         const apiBaseUrl = getBaseUrl();
         console.log('Using API base URL:', apiBaseUrl);
-        
-        // Update debug info
-        document.getElementById('debug-page-url').textContent = window.location.href;
-        document.getElementById('debug-api-url').textContent = apiBaseUrl;
         
         // Store conversation history
         let conversationHistory = [];
@@ -549,11 +480,9 @@
         const queryInput = document.getElementById('query-input');
         const sendButton = document.getElementById('send-button');
         const statusIndicator = document.getElementById('status-indicator');
-        const debugLastResponse = document.getElementById('debug-last-response');
-        const debugHybrid = document.getElementById('debug-hybrid');
         
-        // Track hybrid search status
-        let hybridSearchEnabled = false;
+        // Track hybrid search status (will be detected from sources)
+        let hybridSearchEnabled = true; // Assume hybrid by default
 
         // API health check on page load
         checkApiHealth();
@@ -569,80 +498,8 @@
         });
 
         function checkApiHealth() {
-            console.log(`Checking API health at ${apiBaseUrl}/debug`);
-            
-            fetch(`${apiBaseUrl}/debug`)
-                .then(response => {
-                    console.log('Health check response:', response);
-                    console.log('Headers:', response.headers);
-                    
-                    debugLastResponse.textContent = 
-                        `Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}`;
-                    
-                    if (!response.ok) {
-                        throw new Error(`API check failed: ${response.status}`);
-                    }
-                    
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        return response.json();
-                    } else {
-                        return response.text().then(text => {
-                            throw new Error(`Unexpected response type: ${contentType}, content: ${text.substring(0, 100)}...`);
-                        });
-                    }
-                })
-                .then(data => {
-                    console.log('API health check:', data);
-                    statusIndicator.className = 'api-success';
-                    
-                    // Get hybrid search status
-                    hybridSearchEnabled = data.hybrid_search === 'enabled';
-                    let hybridInfo = hybridSearchEnabled ? 'Enabled' : 'Disabled';
-                    
-                    // Add configuration details if available
-                    if (data.hybrid_config && Object.keys(data.hybrid_config).length > 0) {
-                        const config = data.hybrid_config;
-                        // Calculate bm25_weight from semantic_weight
-                        const bm25Weight = config.semantic_weight ? (1.0 - config.semantic_weight).toFixed(2) : '?';
-                        hybridInfo += ` (${config.semantic_weight || '?'}/${bm25Weight} weights)`;
-                    }
-                    
-                    debugHybrid.textContent = hybridInfo;
-                    
-                    // Update status message with hybrid search info
-                    let statusMessage = `API Connected ✓ (${data.rag_status})`;
-                    if (hybridSearchEnabled) {
-                        statusMessage += ` <span class="feature-badge">Hybrid Search</span>`;
-                    }
-                    
-                    statusIndicator.innerHTML = statusMessage;
-                    statusIndicator.style.display = 'block';
-                    
-                    // Hide after 5 seconds
-                    setTimeout(() => {
-                        statusIndicator.style.display = 'none';
-                    }, 5000);
-                })
-                .catch(error => {
-                    console.error('API health check failed:', error);
-                    statusIndicator.className = 'api-error';
-                    statusIndicator.textContent = `API Error: ${error.message}`;
-                    statusIndicator.style.display = 'block';
-                    
-                    // Clear any existing retry buttons
-                    while (statusIndicator.querySelector('button')) {
-                        statusIndicator.removeChild(statusIndicator.querySelector('button'));
-                    }
-                    
-                    // Add a retry button
-                    const retryButton = document.createElement('button');
-                    retryButton.textContent = 'Retry';
-                    retryButton.onclick = function() {
-                        checkApiHealth();
-                    };
-                    statusIndicator.appendChild(retryButton);
-                });
+            console.log('Skipping API health check - will be determined from first user query');
+            // No automatic health check on startup
         }
 
         // Enhanced markdown processing function
@@ -752,10 +609,6 @@
                 console.log('Response status:', response.status);
                 console.log('Response headers:', response.headers);
                 
-                // Update debug info
-                debugLastResponse.textContent = 
-                    `Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}`;
-                
                 // Check if the response is JSON
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
@@ -778,10 +631,11 @@
                 
                 console.log('Response data:', data);
                 
-                // Update hybrid search status if provided
-                if (data.hybrid_search_enabled !== undefined) {
-                    hybridSearchEnabled = data.hybrid_search_enabled;
-                    debugHybrid.textContent = hybridSearchEnabled ? 'Enabled' : 'Disabled';
+                // Detect hybrid search from source metadata
+                if (data.sources && data.sources.length > 0) {
+                    hybridSearchEnabled = data.sources.some(source => 
+                        source.retrieval_method && source.retrieval_method !== 'semantic_only'
+                    );
                 }
                 
                 // Check if we got a valid response
@@ -962,79 +816,6 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        // Test API buttons
-        document.getElementById('test-debug-btn').addEventListener('click', function() {
-            const resultDiv = document.getElementById('test-result');
-            resultDiv.innerHTML = "Testing debug endpoint...";
-            
-            fetch(`${apiBaseUrl}/debug`)
-                .then(response => {
-                    resultDiv.innerHTML += `<br>Response status: ${response.status}`;
-                    resultDiv.innerHTML += `<br>Content-Type: ${response.headers.get('content-type')}`;
-                    
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        return response.text().then(text => {
-                            resultDiv.innerHTML += `<br>Error content: ${text.substring(0, 100)}...`;
-                            throw new Error(`API error: ${response.status}`);
-                        });
-                    }
-                })
-                .then(data => {
-                    resultDiv.innerHTML += `<br>Success! API response: ${JSON.stringify(data)}`;
-                    
-                    // Update hybrid search status
-                    if (data.hybrid_search !== undefined) {
-                        hybridSearchEnabled = data.hybrid_search === 'enabled';
-                        debugHybrid.textContent = hybridSearchEnabled ? 'Enabled' : 'Disabled';
-                    }
-                })
-                .catch(error => {
-                    resultDiv.innerHTML += `<br>Error: ${error.message}`;
-                });
-        });
-
-        document.getElementById('test-ask-btn').addEventListener('click', function() {
-            const resultDiv = document.getElementById('test-result');
-            resultDiv.innerHTML = "Testing ask endpoint...";
-            
-            fetch(`${apiBaseUrl}/ask`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    query: "Test query",
-                    history: []
-                })
-            })
-            .then(response => {
-                resultDiv.innerHTML += `<br>Response status: ${response.status}`;
-                resultDiv.innerHTML += `<br>Content-Type: ${response.headers.get('content-type')}`;
-                
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    return response.text().then(text => {
-                        resultDiv.innerHTML += `<br>Error content: ${text.substring(0, 100)}...`;
-                        throw new Error(`API error: ${response.status}`);
-                    });
-                }
-            })
-            .then(data => {
-                resultDiv.innerHTML += `<br>Success! Got answer of length: ${data.answer.length}`;
-                
-                // Update hybrid search status if available
-                if (data.hybrid_search_enabled !== undefined) {
-                    hybridSearchEnabled = data.hybrid_search_enabled;
-                    debugHybrid.textContent = hybridSearchEnabled ? 'Enabled' : 'Disabled';
-                }
-            })
-            .catch(error => {
-                resultDiv.innerHTML += `<br>Error: ${error.message}`;
-            });
-        });
     </script>
 </body>
 </html>

@@ -1,121 +1,78 @@
 #!/usr/bin/env python3
 """
-Process GitLab backup data for RAG system.
-
-This script runs the processing pipeline on GitLab backup data,
-extracting and structuring documents from code, issues, wiki pages, etc.
+Simple script that processes code, metadata, and documentation files
+into structured documents for retrieval.
 """
 
-import logging
 import argparse
-import time
 import sys
+from pathlib import Path
 
-from src.processing.pipeline import ProcessingPipeline
+from src.processing.processing_pipeline import ProcessingPipeline
 
 
-def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="Process GitLab backup data for RAG system"
-    )
+def main():
+    parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input-dir", default="data/gitlab_data", help="Path to GitLab data directory"
+        "--input-dir", 
+        default="data/gitlab_data", 
+        help="Path to GitLab data directory"
     )
     parser.add_argument(
         "--output-dir",
         default="data/processed_data",
-        help="Path to output directory for processed documents",
+        help="Path to output directory for processed documents"
     )
     parser.add_argument(
-        "--workers",
-        type=int,
-        default=4,
-        help="Number of worker threads for parallel processing",
+        "--project", 
+        help="Process only this specific project (optional)"
     )
     parser.add_argument(
-        "--project", help="Process only this specific project (optional)"
+        "--max-file-size",
+        type=float,
+        default=5.0,
+        help="Maximum file size in MB to process (default: 5.0)"
     )
-    parser.add_argument(
-        "--max_projects",
-        type=int,
-        help="Maximum number of projects to process (optional)",
-    )
-
-    return parser.parse_args()
-
-
-def main():
-    """Main entry point of the script"""
-    # Parse arguments
-    args = parse_arguments()
-
-    # Log configuration
-    print("--- GitLab Processing Script ---")
-    print(f"Args: {args}")
-
-    if args.project:
-        print(f"Processing only project: {args.project}")
-    if args.max_projects:
-        print(f"Processing at most {args.max_projects} projects")
-
+    
+    args = parser.parse_args()
+    
+    # Validate input directory
+    input_dir = Path(args.input_dir)
+    if not input_dir.exists():
+        print(f"Error: Input directory does not exist: {input_dir}")
+        sys.exit(1)
+    
+    output_dir = Path(args.output_dir)
+    
+    print(f"Input directory: {input_dir}")
+    print(f"Output directory: {output_dir}")
+    
     try:
         # Create pipeline
-        pipeline = ProcessingPipeline(
-            gitlab_backup_dir=args.input_dir,
-            output_dir=args.output_dir,
-            max_workers=args.workers,
-            log_level=logging.INFO,
-        )
-
-        # Get list of projects
-        projects = pipeline._get_projects()
-
-        # Limit to specific project or max number of projects
+        pipeline = ProcessingPipeline(input_dir, output_dir, args.max_file_size)
+        
         if args.project:
-            if args.project in projects:
-                projects = [args.project]
-            else:
-                print(f"Project '{args.project}' not found in GitLab backup directory")
-                sys.exit(1)
-
-        elif args.max_projects and len(projects) > args.max_projects:
-            print(
-                f"Limiting to {args.max_projects} projects out of {len(projects)} total"
-            )
-            projects = projects[: args.max_projects]
-
-        print(f"Found {len(projects)} projects to process")
-
-        # Process all projects or specific project
-        if args.project:
-            start_time = time.time()
-            print(f"Processing project: {args.project}")
-            result = pipeline.process_project(args.project)
-
-            # Count documents
-            doc_count = sum(len(docs) for processor, docs in result.items())
-            print(f"Processed {doc_count} documents from {args.project}")
-
+            print(f"Processing single project: {args.project}")
+            results = pipeline.process_project(args.project)
+            
+            total_docs = sum(len(docs) for docs in results.values())
+            print(f"Processed {total_docs} documents from {args.project}")
+            
         else:
-            start_time = time.time()
-            print("Processing all projects")
-            results = pipeline.process_all_projects(parallel=True)
-
-            # Count documents
+            print("Processing all projects...")
+            results = pipeline.process_all_projects()
+            
             total_docs = sum(
-                len(docs)
+                len(docs) 
                 for project_results in results.values()
-                for processor, docs in project_results.items()
+                for docs in project_results.values()
             )
             print(f"Processed {total_docs} documents from {len(results)} projects")
-
-        # Log total time
-        elapsed_time = time.time() - start_time
-        print(f"Processing completed in {elapsed_time:.2f} seconds")
-
+        
+        print("Processing completed successfully!")
+        
     except Exception as e:
-        print(f"Error during processing: {str(e)}")
+        print(f"Error during processing: {e}")
         sys.exit(1)
 
 

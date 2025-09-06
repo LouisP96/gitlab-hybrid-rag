@@ -2,29 +2,23 @@ from flask import Flask, request, jsonify, render_template
 import os
 import traceback
 import logging
-import sys
 from flask_cors import CORS
 
 
 def create_app(
     rag_instance=None,
+    use_hybrid=True,
+    retrieval_top_k=15,
     semantic_weight=0.8,
-    retrieval_k=25,
-    rerank_candidates=20,
-    reranker_batch_size=8,
-    reranker_model="BAAI/bge-reranker-v2-m3",
-    **other_kwargs,
+    per_system_k=25,
+    bm25_k1=1.2,
+    bm25_b=0.75,
+    use_reranker=True,
+    rerank_max_results=10,
+    reranker_batch_size=32,
+    reranker_model="BAAI/bge-reranker-v2-m3"
 ):
-    """Create and configure the Flask application
-
-    Args:
-        rag_instance: Optional pre-initialized RAG instance
-        semantic_weight: Weight for semantic search (0.0 to 1.0), BM25 weight will be 1-semantic_weight
-        retrieval_k: Number of results to retrieve from each system
-        rerank_candidates: Number of candidates to rerank
-        reranker_batch_size: Batch size for reranking
-        reranker_model: Name of reranker model to use
-    """
+    """Create and configure the Flask application"""
     app = Flask(__name__)
     CORS(app)
 
@@ -32,39 +26,57 @@ def create_app(
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # Add Posit Workbench compatibility with improved configuration
+    # Add Posit Workbench compatibility
     if "RS_SERVER_URL" in os.environ and os.environ["RS_SERVER_URL"]:
         from werkzeug.middleware.proxy_fix import ProxyFix
-
         app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1, x_host=1, x_port=1, x_proto=1)
 
-    # Use provided RAG instance or create a new one
+    # initialise RAG system
     if rag_instance is None:
         try:
             from src.llm.llm_integration import GitLabRAG
+            from src.retrieval.retrievers import HybridRetriever, RAGRetriever
+            from src.retrieval.rerankers import Reranker
 
             api_key = os.environ.get("ANTHROPIC_API_KEY")
-
             if not api_key:
                 logger.warning("ANTHROPIC_API_KEY not found in environment variables!")
 
-            logger.info("Initializing GitLabRAG...")
+            # Choose retriever type
+            if use_hybrid:
+                logger.info("Initialising HybridRetriever...")
+                retriever = HybridRetriever(
+                    semantic_weight=semantic_weight,
+                    per_system_k=per_system_k,
+                    bm25_k1=bm25_k1,
+                    bm25_b=bm25_b
+                )
+            else:
+                logger.info("Initialising RAGRetriever (semantic-only)...")
+                retriever = RAGRetriever()
+
+            # Initialise reranker if requested
+            reranker = None
+            if use_reranker:
+                logger.info("Initialising reranker...")
+                reranker = Reranker(
+                    model_name=reranker_model,
+                    batch_size=reranker_batch_size,
+                    max_results=rerank_max_results
+                )
+            else:
+                logger.info("Reranker disabled")
+            
+            logger.info("Initialising GitLabRAG...")
             rag = GitLabRAG(
+                retriever=retriever,
                 api_key=api_key,
-                index_path="data/embeddings_output/combined_index.faiss",
-                id_mapping_path="data/embeddings_output/combined_id_mapping.json",
-                project_mapping_path="data/embeddings_output/chunk_to_project.json",
-                chunks_dir="data/enriched_output",
-                filtered_words=None,
-                semantic_weight=semantic_weight,
-                retrieval_k=retrieval_k,
-                reranker_model_name=reranker_model,
-                rerank_candidates=rerank_candidates,
-                reranker_batch_size=reranker_batch_size,
+                reranker=reranker,
+                use_query_rewriter=True
             )
-            logger.info("GitLabRAG initialized successfully!")
+            logger.info("GitLabRAG initialised successfully!")
         except Exception as e:
-            logger.error(f"Error initializing RAG system: {str(e)}")
+            logger.error(f"Error initialising RAG system: {str(e)}")
             logger.error(traceback.format_exc())
             rag = None
     else:
@@ -77,120 +89,45 @@ def create_app(
     @app.route("/ask", methods=["POST"])
     def ask():
         try:
-            print("Ask endpoint called!")
-            # Check if RAG system is available
             if rag is None:
-                return jsonify(
-                    {
-                        "error": "RAG system not initialized properly",
-                        "answer": "Sorry, the RAG system is not available. Please check server logs.",
-                        "sources": [],
-                    }
-                ), 500
+                return jsonify({
+                    "error": "RAG system not initialised",
+                    "answer": "RAG system not available",
+                    "sources": []
+                }), 500
 
-            # Parse request
             if not request.is_json:
-                logger.error(f"Invalid request content type: {request.content_type}")
-                return jsonify(
-                    {
-                        "error": "Invalid request, expected JSON",
-                        "answer": "Sorry, there was a problem with your request. Please try again.",
-                        "sources": [],
-                    }
-                ), 400
+                return jsonify({
+                    "error": "Invalid request format",
+                    "answer": "Please send JSON data",
+                    "sources": []
+                }), 400
 
             data = request.json
-            query = data.get("query", "")
+            query = data.get("query", "").strip()
 
-            if not query.strip():
-                return jsonify(
-                    {
-                        "error": "Empty query",
-                        "answer": "Please provide a question to ask.",
-                        "sources": [],
-                    }
-                ), 400
+            if not query:
+                return jsonify({
+                    "error": "Empty query",
+                    "answer": "Please provide a question",
+                    "sources": []
+                }), 400
 
             conversation_history = data.get("history", [])
 
-            # Log the incoming request
-            logger.info(f"Received query: {query}")
-            logger.info(f"History length: {len(conversation_history)}")
+            response = rag.ask(query, conversation_history=conversation_history, retrieval_top_k=retrieval_top_k)
 
-            # Get response from RAG system - pass history separately
-            logger.info("Sending query to RAG system...")
-            response = rag.ask(
-                query, conversation_history=conversation_history, top_k=10
-            )
-            logger.info("Received response from RAG system")
-
-            # Add CORS headers
-            resp = jsonify(
-                {
-                    "answer": response["answer"],
-                    "sources": response.get("sources", []),
-                    "hybrid_search_enabled": True,
-                    "query_rewriter_enabled": True,
-                }
-            )
-            return resp
+            return jsonify({
+                "answer": response["answer"],
+                "sources": response.get("sources", [])
+            })
 
         except Exception as e:
-            logger.error(f"Error processing request: {str(e)}")
-            logger.error(traceback.format_exc())
-            return jsonify(
-                {
-                    "error": str(e),
-                    "answer": "Sorry, an error occurred while processing your request. Please check server logs.",
-                    "sources": [],
-                }
-            ), 500
-
-    @app.route("/debug", methods=["GET"])
-    def debug():
-        """Simple endpoint to test if API is functioning"""
-        try:
-            print("Debug endpoint called!")
-            # Check if RAG system is available
-            rag_status = "initialized" if rag is not None else "not initialized"
-
-            # Get hybrid search status if available
-            hybrid_status = "unknown"
-            hybrid_config = {}
-            if rag is not None and hasattr(rag, "retriever"):
-                try:
-                    hybrid_status = "enabled"
-                    hybrid_config = {
-                        "semantic_weight": semantic_weight,
-                        "retrieval_k": retrieval_k,
-                        "rerank_candidates": rerank_candidates,
-                        "reranker_model": reranker_model,
-                        "query_rewriter": True,
-                    }
-                except Exception as e:
-                    hybrid_status = f"error: {str(e)}"
-
-            return jsonify(
-                {
-                    "status": "ok",
-                    "message": "API is functioning",
-                    "rag_status": rag_status,
-                    "hybrid_search": hybrid_status,
-                    "hybrid_config": hybrid_config,
-                    "environment": {
-                        "anthropic_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
-                        "in_posit": bool(
-                            "RS_SERVER_URL" in os.environ
-                            and os.environ["RS_SERVER_URL"]
-                        ),
-                        "flask_env": app.config.get("ENV", "production"),
-                        "python_version": sys.version,
-                    },
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error in debug endpoint: {str(e)}")
-            logger.error(traceback.format_exc())
-            return jsonify({"status": "error", "message": str(e)}), 500
+            logger.error(f"Error: {str(e)}")
+            return jsonify({
+                "error": str(e),
+                "answer": "An error occurred while processing your request",
+                "sources": []
+            }), 500
 
     return app

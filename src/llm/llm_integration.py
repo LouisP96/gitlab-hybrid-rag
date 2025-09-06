@@ -1,4 +1,3 @@
-from src.retrieval.query_embeddings import RAGRetriever, Reranker, HybridRetriever
 import anthropic
 import re
 from typing import List, Dict
@@ -21,7 +20,7 @@ class QueryRewriter:
             conversation_history: Previous conversation
 
         Returns:
-            Rewritten query optimized for retrieval
+            Rewritten query optimised for retrieval
         """
         if not conversation_history:
             return query
@@ -31,7 +30,7 @@ class QueryRewriter:
         for entry in conversation_history[-2:]:
             context += f"User: {entry['query']}\nAssistant: {entry['answer']}\n\n"
 
-        rewrite_prompt = f"""Given this conversation context and the user's new query, rewrite the query to be optimal for code/documentation search.
+        rewrite_prompt = f"""Given this conversation context and the user's new query, follow the instructions below.
 
         CONVERSATION CONTEXT:
         {context}
@@ -66,56 +65,31 @@ class QueryRewriter:
 class GitLabRAG:
     def __init__(
         self,
+        retriever,
         api_key=None,
         filtered_words=None,
-        # Vector retriever parameters
-        index_path="data/embeddings_output/combined_index.faiss",
-        id_mapping_path="data/embeddings_output/combined_id_mapping.json",
-        project_mapping_path="data/embeddings_output/chunk_to_project.json",
-        chunks_dir="data/enriched_output",
-        model_name="Alibaba-NLP/gte-multilingual-base",
-        # Reranker parameters
-        reranker_model_name="BAAI/bge-reranker-v2-m3",
-        reranker_batch_size=32,
-        # Hybrid parameters
-        bm25_index_path="data/embeddings_output/bm25_index.pkl",
-        semantic_weight=0.8,
-        retrieval_k=25,
-        rerank_candidates=20,
+        use_query_rewriter=True,
+        reranker=None,
     ):
         """
-        Initialize the GitLab RAG system with hybrid retrieval.
+        initialise the GitLab RAG system.
+        
+        Args:
+            retriever: Retriever instance (RAGRetriever or HybridRetriever)
+            reranker: Optional Reranker instance for reranking results
+            use_query_rewriter: Whether to use intelligent query rewriting
         """
-        # Create vector retriever (without reranking)
-        vector_retriever = RAGRetriever(
-            index_path=index_path,
-            id_mapping_path=id_mapping_path,
-            project_mapping_path=project_mapping_path,
-            chunks_dir=chunks_dir,
-            model_name=model_name,
-            use_reranker=False,
-        )
-
-        # Create reranker
-        reranker = Reranker(
-            model_name=reranker_model_name, batch_size=reranker_batch_size
-        )
-
-        # Create hybrid retriever
-        self.retriever = HybridRetriever(
-            vector_retriever=vector_retriever,
-            reranker=reranker,
-            bm25_index_path=bm25_index_path,
-            semantic_weight=semantic_weight,
-            retrieval_k=retrieval_k,
-            rerank_candidates=rerank_candidates,
-        )
+        self.retriever = retriever
+        self.reranker = reranker
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.filtered_words = filtered_words or []
 
-        # Initialize query rewriter
-        self.query_rewriter = QueryRewriter(self.client)
+        # initialise query rewriter if requested
+        if use_query_rewriter:
+            self.query_rewriter = QueryRewriter(self.client)
+        else:
+            self.query_rewriter = None
 
     def filter_content(self, content):
         """Filter out specified words from the content."""
@@ -130,27 +104,34 @@ class GitLabRAG:
 
         return filtered_content
 
-    def ask(self, query, conversation_history=None, top_k=10):
+    def ask(self, query, conversation_history=None, retrieval_top_k=10):
         """
         Ask a question about the codebase with intelligent query rewriting.
 
         Args:
             query: The current question to ask
             conversation_history: Previous conversation for context
-            top_k: Number of chunks to retrieve
+            retrieval_top_k: Number of chunks to retrieve (before optional reranking and further trimming)
         """
         # Use Claude to rewrite the query if needed
-        retrieval_query = self.query_rewriter.rewrite_query(
-            query, conversation_history or []
-        )
+        if self.query_rewriter:
+            retrieval_query = self.query_rewriter.rewrite_query(
+                query, conversation_history or []
+            )
+        else:
+            retrieval_query = query
 
         # Retrieve chunks using the (possibly rewritten) query
-        chunks = self.retriever.search(retrieval_query, top_k=top_k)
+        chunks = self.retriever.search(retrieval_query, retrieval_top_k=retrieval_top_k)
+        
+        # Apply reranking if enabled (reranker controls how many to return)
+        if self.reranker:
+            chunks = self.reranker.rerank(retrieval_query, chunks)
 
         # Format context for the LLM
         context = "CONTEXT:\n\n"
         for i, chunk in enumerate(chunks):
-            filtered_content = self.filter_content(chunk["augmented_content"])
+            filtered_content = self.filter_content(chunk["content"])
             context += f"[SOURCE {i + 1}]\n{filtered_content}\n\n"
 
         # Build conversation context for the LLM
@@ -163,7 +144,7 @@ class GitLabRAG:
                 )
             conversation_context += "---\n\n"
 
-        # Format prompt for Claude
+        # Format prompt
         prompt = (
             f"{conversation_context}{context}\nCURRENT QUESTION: {query}\n\nANSWER:"
         )
@@ -199,31 +180,17 @@ class GitLabRAG:
         # Extract source information
         sources = []
         for chunk in chunks:
+            # Start with basic info, then add all available metadata
             source_info = {
                 "project": chunk["project"],
                 "score": chunk["score"],
                 "retrieval_method": chunk.get("retrieval_method", "unknown"),
             }
-
-            metadata_fields = [
-                "path",
-                "type",
-                "language",
-                "filename",
-                "chunk_type",
-                "parent_id",
-                "author",
-                "issue_id",
-            ]
-
-            for field in metadata_fields:
-                if field in chunk:
-                    source_info[field] = chunk[field]
-
-            if "metadata" in chunk:
-                for field in metadata_fields:
-                    if field in chunk["metadata"] and field not in source_info:
-                        source_info[field] = chunk["metadata"][field]
+            
+            # Add all other fields from the chunk
+            for key, value in chunk.items():
+                if key not in source_info:  # Don't overwrite basic info
+                    source_info[key] = value
 
             sources.append(source_info)
 

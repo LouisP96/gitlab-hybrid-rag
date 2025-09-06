@@ -15,18 +15,18 @@ from typing import Dict, Any
 
 def augment_chunk_with_metadata(chunk_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Augment chunk with its metadata, creating a new field with the augmented content.
+    Augment chunk with its metadata.
 
     Args:
         chunk_data: Dictionary containing chunk data
 
     Returns:
-        Dictionary with added 'augmented_content' field
+        Dictionary with 'content' field replaced by augmented content
     """
     content = chunk_data.get("content", "")
     metadata = chunk_data.get("metadata", {})
 
-    # Initialize augmented content with a template
+    # initialise augmented content with a template
     metadata_fields = []
 
     # Add metadata fields if they exist
@@ -58,32 +58,27 @@ def augment_chunk_with_metadata(chunk_data: Dict[str, Any]) -> Dict[str, Any]:
     else:
         augmented_content = content
 
-    # Create a new dictionary with all original fields plus the augmented content
+    # Replace the content field with the augmented content
     result = chunk_data.copy()
-    result["augmented_content"] = augmented_content
+    result["content"] = augmented_content
 
     return result
 
 
-def process_chunks(input_dir: Path, output_dir: Path, by_project: bool = True):
+def process_chunks(input_dir: Path, output_dir: Path):
     """
     Process chunks by adding metadata prefixes and save them to output directory.
 
     Args:
         input_dir: Directory containing chunked documents
         output_dir: Directory to save augmented chunks to
-        by_project: Whether to organize output by project
     """
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get list of projects if processing by project
-    if by_project:
-        projects = [d for d in input_dir.iterdir() if d.is_dir()]
-        logging.info(f"Found {len(projects)} projects to process")
-    else:
-        projects = [input_dir]
-        logging.info(f"Processing all chunks in {input_dir}")
+    # Get list of projects
+    projects = [d for d in input_dir.iterdir() if d.is_dir()]
+    logging.info(f"Found {len(projects)} projects to process")
 
     # Process each project
     total_processed = 0
@@ -93,11 +88,8 @@ def process_chunks(input_dir: Path, output_dir: Path, by_project: bool = True):
         project_name = project_dir.name
 
         # Create output directory for this project
-        if by_project:
-            project_output_dir = output_dir / project_name
-            project_output_dir.mkdir(exist_ok=True)
-        else:
-            project_output_dir = output_dir
+        project_output_dir = output_dir / project_name
+        project_output_dir.mkdir(exist_ok=True)
 
         # Get all JSON files in this project
         json_files = list(project_dir.glob("*.json"))
@@ -167,24 +159,13 @@ def main():
         default="data/enriched_output",
         help="Directory to save augmented chunks to",
     )
-    parser.add_argument(
-        "--flat", action="store_true", help="Don't organize output by project"
-    )
 
-    # Logging
-    parser.add_argument(
-        "--log-level",
-        type=str,
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Set the logging level",
-    )
 
     args = parser.parse_args()
 
     # Set up logging
     logging.basicConfig(
-        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
@@ -194,7 +175,7 @@ def main():
     output_dir = Path(args.output_dir)
 
     # Process chunks
-    process_chunks(input_dir, output_dir, not args.flat)
+    process_chunks(input_dir, output_dir)
 
 
 if __name__ == "__main__":
