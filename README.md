@@ -8,13 +8,11 @@ A comprehensive Retrieval-Augmented Generation (RAG) system for GitLab codebases
 
 ### **Document Processing & Chunking**
 
-- **Specialised Code Processors**: Extracts functions, classes, and methods from Python (with Google/NumPy/reST docstrings), R (with roxygen2 documentation), Julia (with docstrings), RMarkdown, and generic function detection for 20+ other languages
-
-- **Documentation Processing**: Handles README files, markdown documents, configuration files, package specifications, and project documentation with appropriate chunking strategies
+- **Document Processing**: Handles code, README files, markdown documents, configuration files, package specifications, and project documentation with appropriate chunking strategies
 
 - **GitLab Metadata Extraction**: Processes issues, merge requests, wiki pages, milestones, releases, and CI/CD pipelines with custom chunking that preserves context and hierarchical structure
 
-- **Context Enrichment**: Every chunk is prefixed with structured metadata tags (`[PROJECT: name] [PATH: file/path] [TYPE: function] [LANGUAGE: python]`) to improve search accuracy and provide essential context for retrieval
+- **Context Enrichment**: Every chunk is prefixed with structured metadata tags (`[PROJECT: name] [PATH: file/path] [TYPE: function] [LANGUAGE: python]`) to improve search accuracy and provide context for retrieval
 
 ### **Hybrid Search Pipeline**
 
@@ -26,12 +24,11 @@ A comprehensive Retrieval-Augmented Generation (RAG) system for GitLab codebases
    - **Semantic Search**: Uses `Alibaba-NLP/gte-multilingual-base` for embedding generation and FAISS for vector similarity
    - **BM25 Search**: Code-optimised keyword retrieval with minimal preprocessing to preserve technical terms
 
-3. **Weighted Fusion**: Results combined using **tunable Reciprocal Rank Fusion (RRF)**: `score = semantic_weight × (1/(rank+1)) + bm25_weight × (1/(rank+1))`
+3. **Weighted Fusion**: Results combined using tunable Reciprocal Rank Fusion (RRF): `score = semantic_weight × (1/(rank+1)) + bm25_weight × (1/(rank+1))`
 
 4. **Neural Reranking**: Final reranking with `BAAI/bge-reranker-v2-m3` cross-encoder for optimal relevance
 
 5. **Response Generation**: Answer generation using Claude for context-aware responses
-   - Source attribution with metadata, retrieval methods, and reranking scores
 
 ### **Interactive Web Interface**
 - **Real-time Chat**: Instant question answering with markdown rendering
@@ -53,23 +50,34 @@ pip install -e .
 
 ## Usage Guide
 
-### 1. Download GitLab Data
+### Run the Complete Data Pipeline
+
+You can edit and run the complete pipeline script:
+
+```bash
+./run_data_pipeline.sh
+```
+
+This script runs all data processing steps in sequence with default configurations. Edit the script to customize parameters for your specific GitLab instance and requirements.
+
+### Or Run Scripts Separately
+
+#### 1. Download GitLab Data
 ```bash
 python scripts/download_data.py \
     --gitlab-url https://your-gitlab.com \
     --access-token YOUR_TOKEN \
     --output-dir data/gitlab_data \
-    --clone-repo
 ```
 
-### 2. Process the Data
+#### 2. Process the Data
 ```bash
 python scripts/process_data.py \
     --input-dir data/gitlab_data \
     --output-dir data/processed_output \
 ```
 
-### 3. Create Chunks
+#### 3. Create Chunks
 ```bash
 python scripts/chunk_data.py \
     --input-dir data/processed_output \
@@ -79,14 +87,14 @@ python scripts/chunk_data.py \
     --chunk-overlap 50
 ```
 
-### 4. Enrich with Metadata
+#### 4. Enrich with Metadata
 ```bash
 python scripts/enrich_chunks.py \
     --input-dir data/chunked_output \
     --output-dir data/enriched_output
 ```
 
-### 5. Build Search Indexes
+#### 5. Build Search Indexes
 ```bash
 # Generate vector embeddings
 python scripts/generate_embeddings.py \
