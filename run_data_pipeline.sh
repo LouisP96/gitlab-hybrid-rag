@@ -17,22 +17,22 @@ if [ ! -d "scripts" ]; then
 fi
 
 message "Downloading data"
-python scripts/download_data.py \
+python -m pip scripts.download_data \
     --gitlab-url= # Insert gitlab url here "https://gitlab..."
 
 message "Processing data"
-python scripts/process_data.py
+python -m scripts.process_data
 
 message "Chunking data"
-python scripts/chunk_data.py
+python -m scripts.chunk_data
 
 message "Enriching chunks"
-python scripts/enrich_chunks.py
+python -m scripts.enrich_chunks
 
 message "Generating embeddings"
-python scripts/generate_embeddings.py
+python -m scripts.generate_embeddings
 
 message "Building BM25 index"
-python scripts/build_bm25_index.py
+python -m scripts.build_bm25_index
 
 message "Pipeline completed successfully"

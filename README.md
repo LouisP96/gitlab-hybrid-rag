@@ -62,7 +62,7 @@ This script runs all data processing steps in sequence with default configuratio
 
 #### 1. Download GitLab Data
 ```bash
-python scripts/download_data.py \
+python -m scripts.download_data \
     --gitlab-url https://your-gitlab.com \
     --access-token YOUR_TOKEN \
     --output-dir data/gitlab_data \
@@ -70,14 +70,14 @@ python scripts/download_data.py \
 
 #### 2. Process the Data
 ```bash
-python scripts/process_data.py \
+python -m scripts.process_data \
     --input-dir data/gitlab_data \
     --output-dir data/processed_output \
 ```
 
 #### 3. Create Chunks
 ```bash
-python scripts/chunk_data.py \
+python -m scripts.chunk_data \
     --input-dir data/processed_output \
     --output-dir data/chunked_output \
     --min-chunk-size 50 \
@@ -87,7 +87,7 @@ python scripts/chunk_data.py \
 
 #### 4. Enrich with Metadata
 ```bash
-python scripts/enrich_chunks.py \
+python -m scripts.enrich_chunks \
     --input-dir data/chunked_output \
     --output-dir data/enriched_output
 ```
@@ -95,13 +95,13 @@ python scripts/enrich_chunks.py \
 #### 5. Build Search Indexes
 ```bash
 # Generate vector embeddings
-python scripts/generate_embeddings.py \
+python -m scripts.generate_embeddings \
     --input-dir data/enriched_output \
     --output-dir data/embeddings_output \
     --batch-size 64
 
 # Build BM25 index
-python scripts/build_bm25_index.py \
+python -m scripts.build_bm25_index \
     --input-dir data/enriched_output \
     --output-file data/embeddings_output/bm25_index.pkl
 ```
