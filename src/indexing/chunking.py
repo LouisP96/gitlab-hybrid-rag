@@ -56,7 +56,12 @@ def chunk_text(
             chunk = text[start:end]
 
             # Try to break at sentence boundary if possible
-            last_sentence = max(chunk.rfind(". "), chunk.rfind("! "), chunk.rfind("? "))
+            last_sentence = max(
+                chunk.rfind('. '),
+                chunk.rfind('! '),
+                chunk.rfind('? '),
+                chunk.rfind('\n')
+            )
 
             if last_sentence > len(chunk) // 2:  # Only break if we're past halfway
                 chunk = chunk[: last_sentence + 1]
