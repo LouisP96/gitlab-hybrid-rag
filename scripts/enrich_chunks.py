@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
+from src.utils.logging import setup_script_logging
+
 
 def augment_chunk_with_metadata(chunk_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -78,7 +80,7 @@ def process_chunks(input_dir: Path, output_dir: Path):
 
     # Get list of projects
     projects = [d for d in input_dir.iterdir() if d.is_dir()]
-    logging.info(f"Found {len(projects)} projects to process")
+    logger.info(f"Found {len(projects)} projects to process")
 
     # Process each project
     total_processed = 0
@@ -93,7 +95,7 @@ def process_chunks(input_dir: Path, output_dir: Path):
 
         # Get all JSON files in this project
         json_files = list(project_dir.glob("*.json"))
-        logging.info(f"Processing {len(json_files)} chunks from {project_name}")
+        logger.info(f"Processing {len(json_files)} chunks from {project_name}")
 
         project_processed = 0
         project_errors = 0
@@ -121,24 +123,24 @@ def process_chunks(input_dir: Path, output_dir: Path):
                     project_processed += 1
 
                 except Exception as e:
-                    logging.error(f"Error processing {json_file}: {str(e)}")
+                    logger.error(f"Error processing {json_file}: {str(e)}")
                     project_errors += 1
 
             # Log progress after each batch
-            logging.info(
+            logger.info(
                 f"Project {project_name}: Processed {project_processed}/{len(json_files)} chunks"
             )
 
-        logging.info(
+        logger.info(
             f"Completed project {project_name}: {project_processed} processed, {project_errors} errors"
         )
         total_processed += project_processed
         total_errors += project_errors
 
-    logging.info(
+    logger.info(
         f"Augmentation complete. Processed {total_processed} chunks with {total_errors} errors."
     )
-    logging.info(f"Results saved to {output_dir}")
+    logger.info(f"Results saved to {output_dir}")
 
 
 def main():
@@ -162,12 +164,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Set up logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    logger = setup_script_logging("enrich_chunks")
 
     # Convert paths to Path objects
     input_dir = Path(args.input_dir)

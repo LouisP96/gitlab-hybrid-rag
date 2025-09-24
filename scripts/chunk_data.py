@@ -12,6 +12,7 @@ from typing import List
 
 from src.processing.document import Document
 from src.indexing.chunking import chunk_documents
+from src.utils.logging import setup_script_logging
 
 
 def load_documents(input_dir: Path) -> List[Document]:
@@ -21,7 +22,7 @@ def load_documents(input_dir: Path) -> List[Document]:
     # Get list of projects
     projects = [d.name for d in input_dir.iterdir() if d.is_dir()]
 
-    logging.info(f"Loading documents from {len(projects)} projects")
+    logger.info(f"Loading documents from {len(projects)} projects")
 
     for project in projects:
         project_dir = input_dir / project
@@ -33,7 +34,7 @@ def load_documents(input_dir: Path) -> List[Document]:
                 continue
 
             json_files = list(processor_dir.glob("*.json"))
-            logging.info(
+            logger.info(
                 f"Loading {len(json_files)} {processor_type} documents from {project}"
             )
 
@@ -49,9 +50,9 @@ def load_documents(input_dir: Path) -> List[Document]:
                     )
                     documents.append(doc)
                 except Exception as e:
-                    logging.error(f"Error loading {json_file}: {e}")
+                    logger.error(f"Error loading {json_file}: {e}")
 
-    logging.info(f"Loaded {len(documents)} documents total")
+    logger.info(f"Loaded {len(documents)} documents total")
     return documents
 
 
@@ -72,7 +73,7 @@ def save_chunks(chunks, output_dir: Path):
         project_dir = output_dir / project
         project_dir.mkdir(exist_ok=True)
 
-        logging.info(f"Saving {len(project_chunks)} chunks for {project}")
+        logger.info(f"Saving {len(project_chunks)} chunks for {project}")
 
         for chunk in project_chunks:
             chunk_file = project_dir / f"{chunk.chunk_id}.json"
@@ -122,11 +123,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Set up basic logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
+    logger = setup_script_logging("chunk_data")
 
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
@@ -134,11 +131,11 @@ def main():
     # Load documents
     documents = load_documents(input_dir)
     if not documents:
-        logging.error("No documents found to process")
+        logger.error("No documents found to process")
         return
 
     # Chunk documents
-    logging.info(
+    logger.info(
         f"Chunking {len(documents)} documents (max_chunk_size={args.max_chunk_size})"
     )
     chunks = chunk_documents(
@@ -148,11 +145,11 @@ def main():
         max_chunk_size=args.max_chunk_size,
     )
 
-    logging.info(f"Created {len(chunks)} chunks")
+    logger.info(f"Created {len(chunks)} chunks")
 
     # Save chunks
     save_chunks(chunks, output_dir)
-    logging.info(f"Chunking complete. Results saved to {output_dir}")
+    logger.info(f"Chunking complete. Results saved to {output_dir}")
 
 
 if __name__ == "__main__":

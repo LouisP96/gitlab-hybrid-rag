@@ -9,6 +9,8 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from src.utils.logging import setup_script_logging
+
 
 # Constants
 RATE_LIMIT_DELAY = 0.5
@@ -153,7 +155,8 @@ class GitLabDownloader:
 
     def __init__(self, config: DownloadConfig):
         self.config = config
-        self.logger = self._setup_logging()
+        self.logger = setup_script_logging("download_data")
+
         self.api = GitLabAPI(config, self.logger)
         self.progress = ProgressTracker(self.logger)
         self.clone_stats = CloneStats()
@@ -161,19 +164,6 @@ class GitLabDownloader:
         # Ensure output directory exists
         os.makedirs(config.output_dir, exist_ok=True)
 
-    def _setup_logging(self) -> logging.Logger:
-        """Set up logging configuration"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s [%(levelname)s] %(message)s",
-            handlers=[
-                logging.FileHandler(
-                    os.path.join(self.config.output_dir, "download_log.txt")
-                ),
-                logging.StreamHandler(),
-            ],
-        )
-        return logging.getLogger(__name__)
 
     def get_projects(self, specific_project: Optional[str] = None) -> List[Dict]:
         """Get projects to download - either specific project or all public/internal"""

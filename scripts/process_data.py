@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from src.processing.processing_pipeline import ProcessingPipeline
+from src.utils.logging import setup_script_logging
 
 
 def main():
@@ -33,30 +34,32 @@ def main():
 
     args = parser.parse_args()
 
+    logger = setup_script_logging("process_data")
+
     # Validate input directory
     input_dir = Path(args.input_dir)
     if not input_dir.exists():
-        print(f"Error: Input directory does not exist: {input_dir}")
+        logger.error(f"Input directory does not exist: {input_dir}")
         sys.exit(1)
 
     output_dir = Path(args.output_dir)
 
-    print(f"Input directory: {input_dir}")
-    print(f"Output directory: {output_dir}")
+    logger.info(f"Input directory: {input_dir}")
+    logger.info(f"Output directory: {output_dir}")
 
     try:
         # Create pipeline
         pipeline = ProcessingPipeline(input_dir, output_dir, args.max_file_size)
 
         if args.project:
-            print(f"Processing single project: {args.project}")
+            logger.info(f"Processing single project: {args.project}")
             results = pipeline.process_project(args.project)
 
             total_docs = sum(len(docs) for docs in results.values())
-            print(f"Processed {total_docs} documents from {args.project}")
+            logger.info(f"Processed {total_docs} documents from {args.project}")
 
         else:
-            print("Processing all projects...")
+            logger.info("Processing all projects...")
             results = pipeline.process_all_projects()
 
             total_docs = sum(
@@ -64,12 +67,12 @@ def main():
                 for project_results in results.values()
                 for docs in project_results.values()
             )
-            print(f"Processed {total_docs} documents from {len(results)} projects")
+            logger.info(f"Processed {total_docs} documents from {len(results)} projects")
 
-        print("Processing completed successfully!")
+        logger.info("Processing completed successfully!")
 
     except Exception as e:
-        print(f"Error during processing: {e}")
+        logger.error(f"Error during processing: {e}")
         sys.exit(1)
 
 

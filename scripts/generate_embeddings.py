@@ -16,13 +16,15 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
 
+from src.utils.logging import setup_script_logging
+
 
 def optimise_model(model):
     """Apply optimisations to the model."""
     transformer_model = model._first_module().auto_model
     transformer_model.config.unpad_inputs = True
     transformer_model.half()
-    logging.info("Applied model optimisations: unpadding and half precision")
+    logger.info("Applied model optimisations: unpadding and half precision")
 
 
 def load_chunk_data(json_files, project_name):
@@ -77,29 +79,27 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-    )
+    logger = setup_script_logging("generate_embeddings")
 
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
     start_time = datetime.now()
-    logging.info(f"Starting embedding generation at {start_time}")
+    logger.info(f"Starting embedding generation at {start_time}")
 
     # Device selection
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
-    logging.info(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
 
     # Load model with optimisations
-    logging.info(f"Loading model: {args.model}")
+    logger.info(f"Loading model: {args.model}")
     model = SentenceTransformer(args.model, trust_remote_code=True, device=device)
     optimise_model(model)
 
     # Get embedding dimension
     embedding_dim = model.get_sentence_embedding_dimension()
-    logging.info(f"Model loaded successfully. Embedding dimension: {embedding_dim}")
+    logger.info(f"Model loaded successfully. Embedding dimension: {embedding_dim}")
 
     # initialise index and mappings
     index = faiss.IndexFlatIP(embedding_dim)
@@ -110,7 +110,7 @@ def main():
     # Get all projects and count total chunks
     all_projects = [d for d in input_dir.iterdir() if d.is_dir()]
     total_chunks = sum(len(list(proj.glob("*.json"))) for proj in all_projects)
-    logging.info(f"Found {len(all_projects)} projects with {total_chunks} total chunks")
+    logger.info(f"Found {len(all_projects)} projects with {total_chunks} total chunks")
 
     # Process all chunks
     batch_texts = []
@@ -119,7 +119,7 @@ def main():
     for project_dir in all_projects:
         project_name = project_dir.name
         json_files = list(project_dir.glob("*.json"))
-        logging.info(f"Processing {len(json_files)} chunks from {project_name}")
+        logger.info(f"Processing {len(json_files)} chunks from {project_name}")
 
         for chunk_id, content, project in load_chunk_data(json_files, project_name):
             batch_texts.append(content)
@@ -165,7 +165,7 @@ def main():
 
     # Summary
     duration = datetime.now() - start_time
-    logging.info(
+    logger.info(
         f"Completed in {duration}. Processed {processed_chunks}/{total_chunks} chunks"
     )
 
