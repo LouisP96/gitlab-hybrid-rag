@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 function message {
     RED='\033[0;31m'
@@ -8,13 +7,6 @@ function message {
     
     echo -e "\n${GREEN}*** ${RED}$1 ${GREEN}***${PLAIN}\n"
 }
-
-# Check if scripts directory exists
-if [ ! -d "scripts" ]; then
-    echo "Error: 'scripts' directory not found!"
-    echo "Please run this script from the project root directory."
-    exit 1
-fi
 
 message "Downloading data"
 python -m pip scripts.download_data \
